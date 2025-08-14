@@ -9,7 +9,7 @@ int main() {
     constexpr int MAP_W = 26;
     constexpr int MAP_H = 20;
     constexpr float TILE = 37.f; // tile size in pixels
-    const unsigned winW = static_cast<unsigned>(MAP_W * TILE);
+    const unsigned winW = static_cast<unsigned>(MAP_W * TILE);    
     const unsigned winH = static_cast<unsigned>(MAP_H * TILE);
 
     sf::RenderWindow window(sf::VideoMode({winW, winH}), "Sokuban dual!");
