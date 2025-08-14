@@ -1,0 +1,57 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build C++ file with SFML",
+      "type": "shell",
+      "command": "C:/winlibs/mingw64/bin/g++.exe",
+      "args": [
+        "-g",
+        "-std=c++17",
+        "-DSFML_STATIC",
+        "${workspaceFolder}/Source/Sokuban.cpp",
+        "-o",
+        "${workspaceFolder}/Sokuban.exe",
+        "-I${workspaceFolder}/sfml/include",
+        "-L${workspaceFolder}/sfml/lib",
+        "-lsfml-graphics",
+        "-lsfml-window",
+        "-lsfml-system",
+        "-lsfml-audio"
+      ],
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "detail": "Compiles Sokuban.cpp with SFML libraries using C++17."
+    },
+    {
+      "label": "Copy SFML DLLs",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/C",
+        "copy",
+        "${workspaceFolder}\\sfml\\bin\\*.dll",
+        "${workspaceFolder}"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "silent"
+      }
+    },
+    {
+      "label": "Build & Copy (Default)",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Build C++ file with SFML",
+        "Copy SFML DLLs"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}
