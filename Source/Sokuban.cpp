@@ -104,6 +104,7 @@ int main() {
 
     sf::RenderWindow window(sf::VideoMode({winW, winH}), "Sokuban dual!");
     window.setFramerateLimit(10);
+    window.setKeyRepeatEnabled(false); // disable OS key repeat so event repeats don't interfere (still using polling below)
 
     // --- Load textures (kept alive in main) ---
     // immovable special box texture
@@ -203,126 +204,105 @@ int main() {
 
     // --- Game loop ---
     while (window.isOpen()) {
-        // Event loop
-        while (auto ev = window.pollEvent()) {
-            if (ev->is<sf::Event::Closed>()) {
-                window.close();
-            }
-
-            if (auto keyEv = ev->getIf<sf::Event::KeyPressed>()) {
-                // We'll handle movement in terms of grid dx/dy
-                // note: otherX/otherY are the other player's current grid position (to avoid collisions)
-                auto handle_player_move = [&](int &px, int &py, int dx, int dy, int otherX, int otherY) {
-                    int newX = px + dx;
-                    int newY = py + dy;
-
-                    // prevent moving onto the other player
-                    if (newX == otherX && newY == otherY) return;
-
-                    // bounds check for the player's tentative move
-                    if (newX < 0 || newX >= MAP_W || newY < 0 || newY >= MAP_H) return;
-
-                    GameObject* target = tiles[newY][newX];
-
-                    // If target is walkable (floor), move player
-                    if (!target->isPenetrate) {
-                        px = newX;
-                        py = newY;
-                        return;
-                    }
-
-                    // target is blocking: see if it's a pushable box
-                    PushableBox* pb = dynamic_cast<PushableBox*>(target);
-                    if (pb) {
-                        int boxNewX = newX + dx;
-                        int boxNewY = newY + dy;
-
-                        // check bounds for box push
-                        if (boxNewX < 0 || boxNewX >= MAP_W || boxNewY < 0 || boxNewY >= MAP_H) {
-                            // stops at border
-                            return;
-                        }
-
-                        // don't push onto a player (either the mover or the other)
-                        if ((boxNewX == otherX && boxNewY == otherY) || (boxNewX == px && boxNewY == py)) {
-                            return;
-                        }
-
-                        // check destination tile for box
-                        GameObject* boxTarget = tiles[boxNewY][boxNewX];
-                        if (!boxTarget->isPenetrate) {
-                            // move the box: delete whatever was on box destination,
-                            // move box pointer to new location, and create a floor where the box was
-                            delete boxTarget;
-                            tiles[boxNewY][boxNewX] = tiles[newY][newX]; // move pointer (PushableBox)
-                            tiles[boxNewY][boxNewX]->setPosition(sf::Vector2f(boxNewX * TILE, boxNewY * TILE));
-
-                            // create a new floor at the box's old position
-                            tiles[newY][newX] = makeFloorAt(newX, newY);
-
-                            // now player moves into the box's old position
-                            px = newX;
-                            py = newY;
-                        } else {
-                            // blocked by something else (another box, immovable box, etc.)
-                            return;
-                        }
-                    } else {
-                        // target is blocking but not pushable -> can't move
-                        return;
-                    }
-                };
-
-                switch (keyEv->scancode) {
-                    // Player 1 (WASD)
-                    case sf::Keyboard::Scan::W:
-                        handle_player_move(p1X, p1Y, 0, -1, p2X, p2Y);
-                        break;
-                    case sf::Keyboard::Scan::S:
-                        handle_player_move(p1X, p1Y, 0, 1, p2X, p2Y);
-                        break;
-                    case sf::Keyboard::Scan::A:
-                        handle_player_move(p1X, p1Y, -1, 0, p2X, p2Y);
-                        break;
-                    case sf::Keyboard::Scan::D:
-                        handle_player_move(p1X, p1Y, 1, 0, p2X, p2Y);
-                        break;
-
-                    // Player 2 (Arrow keys)
-                    case sf::Keyboard::Scan::Up:
-                        handle_player_move(p2X, p2Y, 0, -1, p1X, p1Y);
-                        break;
-                    case sf::Keyboard::Scan::Down:
-                        handle_player_move(p2X, p2Y, 0, 1, p1X, p1Y);
-                        break;
-                    case sf::Keyboard::Scan::Left:
-                        handle_player_move(p2X, p2Y, -1, 0, p1X, p1Y);
-                        break;
-                    case sf::Keyboard::Scan::Right:
-                        handle_player_move(p2X, p2Y, 1, 0, p1X, p1Y);
-                        break;
-
-                    default:
-                        break;
-                }
-
-                // update pixel positions using sf::Vector2f
-                player1.setPosition(sf::Vector2f(p1X * TILE + 2.f, p1Y * TILE + 2.f));
-                player2.setPosition(sf::Vector2f(p2X * TILE + 2.f, p2Y * TILE + 2.f));
-            }
+    // Event loop: only use events for window/system events now
+    while (auto ev = window.pollEvent()) {
+        if (ev->is<sf::Event::Closed>()) {
+            window.close();
         }
-
-        // Draw
-        window.clear(sf::Color::Black);
-        for (int y = 0; y < MAP_H; ++y) {
-            for (int x = 0; x < MAP_W; ++x) {
-                window.draw(*tiles[y][x]);
-            }
-        }
-        window.draw(player1);
-        window.draw(player2);
-        window.display();
+        // remove per-key movement handling from here
     }
+
+    // ---------- Realtime (polled) input handling ----------
+    // compute each player's desired direction (dx,dy) based on keys held this frame
+    int p1_dx = 0, p1_dy = 0;
+    int p2_dx = 0, p2_dy = 0;
+
+    // Player 1 (WASD) - using scancodes to match your event usage
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::W)) p1_dy = -1;
+    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::S)) p1_dy = 1;
+    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::A)) p1_dx = -1;
+    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::D)) p1_dx = 1;
+
+    // Player 2 (Arrow keys)
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::Up))    p2_dy = -1;
+    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::Down))  p2_dy = 1;
+    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::Left))  p2_dx = -1;
+    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::Right)) p2_dx = 1;
+
+    // helper used already in your code (keeps push logic centralized)
+    auto try_move_player = [&](int &px, int &py, int dx, int dy, int otherX, int otherY) {
+        if (dx == 0 && dy == 0) return; // no movement intended
+        int newX = px + dx;
+        int newY = py + dy;
+
+        // prevent moving onto the other player's *current* position
+        if (newX == otherX && newY == otherY) return;
+
+        // bounds check
+        if (newX < 0 || newX >= MAP_W || newY < 0 || newY >= MAP_H) return;
+
+        GameObject* target = tiles[newY][newX];
+
+        if (!target->isPenetrate) {
+            px = newX;
+            py = newY;
+            return;
+        }
+
+        PushableBox* pb = dynamic_cast<PushableBox*>(target);
+        if (pb) {
+            int boxNewX = newX + dx;
+            int boxNewY = newY + dy;
+            if (boxNewX < 0 || boxNewX >= MAP_W || boxNewY < 0 || boxNewY >= MAP_H) return;
+            if ((boxNewX == otherX && boxNewY == otherY) || (boxNewX == px && boxNewY == py)) return;
+            GameObject* boxTarget = tiles[boxNewY][boxNewX];
+            if (!boxTarget->isPenetrate) {
+                delete boxTarget;
+                tiles[boxNewY][boxNewX] = tiles[newY][newX];
+                tiles[boxNewY][boxNewX]->setPosition(sf::Vector2f(boxNewX * TILE, boxNewY * TILE));
+                tiles[newY][newX] = makeFloorAt(newX, newY);
+                px = newX;
+                py = newY;
+            } else {
+                return;
+            }
+        } else {
+            return;
+        }
+    };
+
+    // Simple simultaneous-move resolution:
+    // - compute intended destinations and avoid allowing both players to move into the same tile
+    int p1_targetX = p1X + p1_dx, p1_targetY = p1Y + p1_dy;
+    int p2_targetX = p2X + p2_dx, p2_targetY = p2Y + p2_dy;
+
+    // If both intend to move into same tile, cancel both moves (could also pick priority)
+    bool conflictSameTile = (p1_dx != 0 || p1_dy != 0) && (p2_dx != 0 || p2_dy != 0)
+                            && (p1_targetX == p2_targetX && p1_targetY == p2_targetY);
+
+    // If they intend to swap positions (p1 -> p2 current and p2 -> p1 current) cancel both
+    bool swapPositions = (p1_targetX == p2X && p1_targetY == p2Y) &&
+                         (p2_targetX == p1X && p2_targetY == p1Y);
+
+    if (!conflictSameTile && !swapPositions) {
+        // apply both moves (order here matters if boxes involved; you might prefer atomic resolution)
+        try_move_player(p1X, p1Y, p1_dx, p1_dy, p2X, p2Y);
+        try_move_player(p2X, p2Y, p2_dx, p2_dy, p1X, p1Y);
+    } else {
+        // if conflict, no moves this frame; alternative: prioritize one player
+    }
+
+    // update sprite pixel positions
+    player1.setPosition(sf::Vector2f(p1X * TILE + 2.f, p1Y * TILE + 2.f));
+    player2.setPosition(sf::Vector2f(p2X * TILE + 2.f, p2Y * TILE + 2.f));
+
+    // ---------- Drawing ----------
+    window.clear(sf::Color::Black);
+    for (int y = 0; y < MAP_H; ++y) for (int x = 0; x < MAP_W; ++x) window.draw(*tiles[y][x]);
+    window.draw(player1);
+    window.draw(player2);
+    window.display();
+}
 
     // --- Free memory ---
     for (int y = 0; y < MAP_H; ++y) {
