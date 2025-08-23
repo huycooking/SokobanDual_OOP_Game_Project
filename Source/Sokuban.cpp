@@ -1,76 +1,96 @@
+// Sokoban.cpp
 #include <SFML/Graphics.hpp>
 #include <array>
 #include <optional>
 #include <iostream>
+#include <memory>
 
 // --- GameObject: encapsulated, drawable wrapper for either a rectangle or a textured sprite ---
 class GameObject : public sf::Drawable {
 public:
-    GameObject() : isPenetrate(false), hasTexture(false) {}
+    GameObject() : isPenetrate(false) {}
 
     virtual ~GameObject() = default;
 
     // Keep signatures compatible with your usage (sf::Vector2<float> alias)
-    virtual void setSize(const sf::Vector2<float>& size) {
+    virtual void setSize(const sf::Vector2f& size) {
         shape.setSize(size);
     }
 
-    virtual void setPosition(const sf::Vector2<float>& pos) {
+    virtual void setPosition(const sf::Vector2f& pos) {
         shape.setPosition(pos);
-        if (hasTexture) sprite.setPosition(pos);
+        if (sprite) sprite->setPosition(pos);
     }
 
     virtual void setFillColor(const sf::Color& color) {
         shape.setFillColor(color);
     }
 
-    // public attribute requested by you (true => cannot be walked through)
+    // true => cannot be walked through
     bool isPenetrate;
+
+    // By default not pushable
+    virtual bool isPushable() const { return false; }
 
 protected:
     sf::RectangleShape shape;
-    sf::Sprite sprite;
-    bool hasTexture;
+    std::optional<sf::Sprite> sprite; // sf::Sprite requires a texture at construction
 
     // draw either sprite (when textured) or the rectangle shape
     virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const override {
-        if (hasTexture) target.draw(sprite, states);
+        if (sprite) target.draw(*sprite, states);
         else target.draw(shape, states);
     }
 };
 
-// --- Box: a blocking tile with an optional texture ---
+// --- Box: a blocking tile with an optional texture (immovable) ---
 class Box : public GameObject {
 public:
     // tex pointer must outlive this Box (we keep textures in main)
     Box(const sf::Texture* tex = nullptr, float desiredSize = 0.f) {
-        isPenetrate = true; // box blocks movement as requested
+        isPenetrate = true; // immovable blocking tile
 
         if (tex) {
-            hasTexture = true;
-            sprite.setTexture(*tex);
-
-            // if desired pixel size provided, scale sprite to fit
+            sprite.emplace(*tex);
             if (desiredSize > 0.f) {
                 auto tsz = tex->getSize();
                 if (tsz.x > 0 && tsz.y > 0) {
-                    sprite.setScale(sf::Vector2<float>(desiredSize / static_cast<float>(tsz.x),
-                                                       desiredSize / static_cast<float>(tsz.y)));
+                    sprite->setScale(sf::Vector2f(desiredSize / static_cast<float>(tsz.x),
+                                                  desiredSize / static_cast<float>(tsz.y)));
                 }
-                // keep rectangle shape size in sync (used when no texture or for bounds)
-                shape.setSize(sf::Vector2<float>(desiredSize, desiredSize));
+                shape.setSize(sf::Vector2f(desiredSize, desiredSize));
             }
         }
     }
 
-    // override setSize so shape stays consistent; sprite scaling already set in ctor
-    void setSize(const sf::Vector2<float>& size) override {
+    void setSize(const sf::Vector2f& size) override {
         shape.setSize(size);
-        // If sprite is textured, keep sprite scale as-is (constructed above),
-        // but in case user changes size later, we could re-scale using texture size.
+    }
+};
+
+// --- PushableBox: a box that players can push one tile at a time ---
+class PushableBox : public GameObject {
+public:
+    PushableBox(const sf::Texture* tex = nullptr, float desiredSize = 0.f) {
+        isPenetrate = true; // blocks walking unless pushed
+        if (tex) {
+            sprite.emplace(*tex);
+            if (desiredSize > 0.f) {
+                auto tsz = tex->getSize();
+                if (tsz.x > 0 && tsz.y > 0) {
+                    sprite->setScale(sf::Vector2f(desiredSize / static_cast<float>(tsz.x),
+                                                  desiredSize / static_cast<float>(tsz.y)));
+                }
+                shape.setSize(sf::Vector2f(desiredSize, desiredSize));
+            }
+        }
     }
 
-    // setPosition inherited from base will position both shape and sprite correctly
+    bool isPushable() const override { return true; }
+
+    void setSize(const sf::Vector2f& size) override {
+        shape.setSize(size);
+    }
 };
 
 int main() {
@@ -85,133 +105,210 @@ int main() {
     sf::RenderWindow window(sf::VideoMode({winW, winH}), "Sokuban dual!");
     window.setFramerateLimit(10);
 
-    // --- Load box texture (kept alive in main) ---
-    const sf::Texture boxTex("Assets/SpecialBox.jpg"); // ensure this file exists in Assets
+    // --- Load textures (kept alive in main) ---
+    // immovable special box texture
+    sf::Texture specialBoxTex;
+    if (!specialBoxTex.loadFromFile("Assets/SpecialBox.jpg")) {
+        std::cerr << "Failed to load Assets/SpecialBox.jpg\n";
+        return 1;
+    }
 
-    // --- Allocate raw 2D array for tiles (now pointers to GameObject so we can store Box) ---
+    // pushable box texture (user requested box.jpg in Assets/)
+    sf::Texture pushableBoxTex;
+    if (!pushableBoxTex.loadFromFile("Assets/box.jpg")) {
+        std::cerr << "Failed to load Assets/box.jpg\n";
+        return 1;
+    }
+
+    // player textures
+    sf::Texture player1Tex;
+    if (!player1Tex.loadFromFile("Assets/Player1.jpg")) {
+        std::cerr << "Failed to load Assets/Player1.jpg\n";
+        return 1;
+    }
+    sf::Texture player2Tex;
+    if (!player2Tex.loadFromFile("Assets/Player2.jpg")) {
+        std::cerr << "Failed to load Assets/Player2.jpg\n";
+        return 1;
+    }
+
+    // --- Allocate raw 2D array for tiles (pointers to GameObject so we can store different derived objects) ---
     GameObject*** tiles = new GameObject**[MAP_H];
     for (int y = 0; y < MAP_H; ++y) {
         tiles[y] = new GameObject*[MAP_W];
     }
 
-    // --- Initialize map (checkerboard) with plain GameObject instances ---
+    // Helper: set floor tile properties (size, position, color)
+    auto makeFloorAt = [&](int x, int y) -> GameObject* {
+        GameObject* g = new GameObject();
+        g->setSize(sf::Vector2f(TILE - 1.f, TILE - 1.f));
+        g->setPosition(sf::Vector2f(x * TILE, y * TILE));
+        bool dark = ((x + y) % 2) == 0;
+        g->setFillColor(dark ? sf::Color(220, 226, 234) : sf::Color(240, 244, 248));
+        g->isPenetrate = false; // walkable
+        return g;
+    };
+
+    // --- Initialize map (checkerboard) with plain GameObject floor instances ---
     for (int y = 0; y < MAP_H; ++y) {
         for (int x = 0; x < MAP_W; ++x) {
-            tiles[y][x] = new GameObject();
-            tiles[y][x]->setSize(sf::Vector2<float>(TILE - 1.f, TILE - 1.f)); // gap to show grid
-            tiles[y][x]->setPosition(sf::Vector2<float>(x * TILE, y * TILE));
-            bool dark = ((x + y) % 2) == 0;
-            tiles[y][x]->setFillColor(dark ? sf::Color(220, 226, 234) : sf::Color(240, 244, 248));
-            tiles[y][x]->isPenetrate = false; // default: walkable
+            tiles[y][x] = makeFloorAt(x, y);
         }
     }
 
-    // --- Replace a single tile with a Box (example: center tile) ---
-    const int boxX = MAP_W / 2;
-    const int boxY = MAP_H / 2;
+    // --- Place an immovable special box at center (example) ---
+    const int centerX = MAP_W / 2;
+    const int centerY = MAP_H / 2;
+    delete tiles[centerY][centerX];
+    tiles[centerY][centerX] = new Box(&specialBoxTex, TILE - 4.f);
+    tiles[centerY][centerX]->setPosition(sf::Vector2f(centerX * TILE, centerY * TILE));
 
-    // delete previous GameObject and put a Box there
-    delete tiles[boxY][boxX];
-    tiles[boxY][boxX] = new Box(&boxTex, TILE - 4.f); // Box will block walking
-    tiles[boxY][boxX]->setPosition(sf::Vector2<float>(boxX * TILE, boxY * TILE));
-    // Optionally set a shape fill if texture not visible:
-    // tiles[boxY][boxX]->setFillColor(sf::Color::Red);
+    // --- Place a couple of pushable boxes (player can push these) ---
+    const int pb1X = centerX + 1;
+    const int pb1Y = centerY;
+    delete tiles[pb1Y][pb1X];
+    tiles[pb1Y][pb1X] = new PushableBox(&pushableBoxTex, TILE - 4.f);
+    tiles[pb1Y][pb1X]->setPosition(sf::Vector2f(pb1X * TILE, pb1Y * TILE));
+
+    const int pb2X = centerX - 2;
+    const int pb2Y = centerY;
+    delete tiles[pb2Y][pb2X];
+    tiles[pb2Y][pb2X] = new PushableBox(&pushableBoxTex, TILE - 4.f);
+    tiles[pb2Y][pb2X]->setPosition(sf::Vector2f(pb2X * TILE, pb2Y * TILE));
 
     // --- Player 1 setup (sprite from Assets/Player1.jpg, WASD) ---
-    const sf::Texture player1Tex("Assets/Player1.jpg");
     sf::Sprite player1(player1Tex);
     float desiredSize = TILE - 4.f;
     auto t1sz = player1Tex.getSize();
     if (t1sz.x > 0 && t1sz.y > 0) {
-        player1.setScale(sf::Vector2<float>(desiredSize / static_cast<float>(t1sz.x),
-                                            desiredSize / static_cast<float>(t1sz.y)));
+        player1.setScale(sf::Vector2f(desiredSize / static_cast<float>(t1sz.x),
+                                     desiredSize / static_cast<float>(t1sz.y)));
     }
 
     int p1X = MAP_W / 4;
     int p1Y = MAP_H / 2;
-    player1.setPosition(sf::Vector2<float>(p1X * TILE + 2.f, p1Y * TILE + 2.f)); // explicit sf::Vector2<float>
+    player1.setPosition(sf::Vector2f(p1X * TILE + 2.f, p1Y * TILE + 2.f));
 
     // --- Player 2 setup (sprite from Assets/Player2.jpg, Arrow keys) ---
-    const sf::Texture player2Tex("Assets/Player2.jpg");
     sf::Sprite player2(player2Tex);
     auto t2sz = player2Tex.getSize();
     if (t2sz.x > 0 && t2sz.y > 0) {
-        player2.setScale(sf::Vector2<float>(desiredSize / static_cast<float>(t2sz.x),
-                                            desiredSize / static_cast<float>(t2sz.y)));
+        player2.setScale(sf::Vector2f(desiredSize / static_cast<float>(t2sz.x),
+                                     desiredSize / static_cast<float>(t2sz.y)));
     }
 
     int p2X = (MAP_W * 3) / 4;
     int p2Y = MAP_H / 2;
-    player2.setPosition(sf::Vector2<float>(p2X * TILE + 2.f, p2Y * TILE + 2.f)); // explicit sf::Vector2<float>
+    player2.setPosition(sf::Vector2f(p2X * TILE + 2.f, p2Y * TILE + 2.f));
 
     // --- Game loop ---
     while (window.isOpen()) {
-        // Event loop (SFML 3 polling returns optional-like object)
+        // Event loop
         while (auto ev = window.pollEvent()) {
             if (ev->is<sf::Event::Closed>()) {
                 window.close();
             }
 
             if (auto keyEv = ev->getIf<sf::Event::KeyPressed>()) {
-                // compute tentative new positions then check tile->isPenetrate
-                int newP1X = p1X, newP1Y = p1Y;
-                int newP2X = p2X, newP2Y = p2Y;
+                // We'll handle movement in terms of grid dx/dy
+                // note: otherX/otherY are the other player's current grid position (to avoid collisions)
+                auto handle_player_move = [&](int &px, int &py, int dx, int dy, int otherX, int otherY) {
+                    int newX = px + dx;
+                    int newY = py + dy;
+
+                    // prevent moving onto the other player
+                    if (newX == otherX && newY == otherY) return;
+
+                    // bounds check for the player's tentative move
+                    if (newX < 0 || newX >= MAP_W || newY < 0 || newY >= MAP_H) return;
+
+                    GameObject* target = tiles[newY][newX];
+
+                    // If target is walkable (floor), move player
+                    if (!target->isPenetrate) {
+                        px = newX;
+                        py = newY;
+                        return;
+                    }
+
+                    // target is blocking: see if it's a pushable box
+                    PushableBox* pb = dynamic_cast<PushableBox*>(target);
+                    if (pb) {
+                        int boxNewX = newX + dx;
+                        int boxNewY = newY + dy;
+
+                        // check bounds for box push
+                        if (boxNewX < 0 || boxNewX >= MAP_W || boxNewY < 0 || boxNewY >= MAP_H) {
+                            // stops at border
+                            return;
+                        }
+
+                        // don't push onto a player (either the mover or the other)
+                        if ((boxNewX == otherX && boxNewY == otherY) || (boxNewX == px && boxNewY == py)) {
+                            return;
+                        }
+
+                        // check destination tile for box
+                        GameObject* boxTarget = tiles[boxNewY][boxNewX];
+                        if (!boxTarget->isPenetrate) {
+                            // move the box: delete whatever was on box destination,
+                            // move box pointer to new location, and create a floor where the box was
+                            delete boxTarget;
+                            tiles[boxNewY][boxNewX] = tiles[newY][newX]; // move pointer (PushableBox)
+                            tiles[boxNewY][boxNewX]->setPosition(sf::Vector2f(boxNewX * TILE, boxNewY * TILE));
+
+                            // create a new floor at the box's old position
+                            tiles[newY][newX] = makeFloorAt(newX, newY);
+
+                            // now player moves into the box's old position
+                            px = newX;
+                            py = newY;
+                        } else {
+                            // blocked by something else (another box, immovable box, etc.)
+                            return;
+                        }
+                    } else {
+                        // target is blocking but not pushable -> can't move
+                        return;
+                    }
+                };
 
                 switch (keyEv->scancode) {
                     // Player 1 (WASD)
                     case sf::Keyboard::Scan::W:
-                        if (p1Y > 0) --newP1Y;
+                        handle_player_move(p1X, p1Y, 0, -1, p2X, p2Y);
                         break;
                     case sf::Keyboard::Scan::S:
-                        if (p1Y < MAP_H - 1) ++newP1Y;
+                        handle_player_move(p1X, p1Y, 0, 1, p2X, p2Y);
                         break;
                     case sf::Keyboard::Scan::A:
-                        if (p1X > 0) --newP1X;
+                        handle_player_move(p1X, p1Y, -1, 0, p2X, p2Y);
                         break;
                     case sf::Keyboard::Scan::D:
-                        if (p1X < MAP_W - 1) ++newP1X;
+                        handle_player_move(p1X, p1Y, 1, 0, p2X, p2Y);
                         break;
 
                     // Player 2 (Arrow keys)
                     case sf::Keyboard::Scan::Up:
-                        if (p2Y > 0) --newP2Y;
+                        handle_player_move(p2X, p2Y, 0, -1, p1X, p1Y);
                         break;
                     case sf::Keyboard::Scan::Down:
-                        if (p2Y < MAP_H - 1) ++newP2Y;
+                        handle_player_move(p2X, p2Y, 0, 1, p1X, p1Y);
                         break;
                     case sf::Keyboard::Scan::Left:
-                        if (p2X > 0) --newP2X;
+                        handle_player_move(p2X, p2Y, -1, 0, p1X, p1Y);
                         break;
                     case sf::Keyboard::Scan::Right:
-                        if (p2X < MAP_W - 1) ++newP2X;
+                        handle_player_move(p2X, p2Y, 1, 0, p1X, p1Y);
                         break;
 
                     default:
                         break;
                 }
 
-                // check Box / blocking for Player 1
-                if (newP1X != p1X || newP1Y != p1Y) {
-                    // ensure indices valid (they should be because we limited earlier)
-                    if (!tiles[newP1Y][newP1X]->isPenetrate) {
-                        p1X = newP1X;
-                        p1Y = newP1Y;
-                    } else {
-                        // tile blocked; optionally play bump sound or debug
-                    }
-                }
-
-                // check Box / blocking for Player 2
-                if (newP2X != p2X || newP2Y != p2Y) {
-                    if (!tiles[newP2Y][newP2X]->isPenetrate) {
-                        p2X = newP2X;
-                        p2Y = newP2Y;
-                    }
-                }
-
-                // update pixel positions using sf::Vector2<float>
-                player1.setPosition(sf::Vector2<float>(p1X * TILE + 2.f, p1Y * TILE + 2.f));
-                player2.setPosition(sf::Vector2<float>(p2X * TILE + 2.f, p2Y * TILE + 2.f));
+                // update pixel positions using sf::Vector2f
+                player1.setPosition(sf::Vector2f(p1X * TILE + 2.f, p1Y * TILE + 2.f));
+                player2.setPosition(sf::Vector2f(p2X * TILE + 2.f, p2Y * TILE + 2.f));
             }
         }
 
@@ -219,7 +316,6 @@ int main() {
         window.clear(sf::Color::Black);
         for (int y = 0; y < MAP_H; ++y) {
             for (int x = 0; x < MAP_W; ++x) {
-                // tiles[y][x] is a pointer to GameObject; dereference for drawing
                 window.draw(*tiles[y][x]);
             }
         }
