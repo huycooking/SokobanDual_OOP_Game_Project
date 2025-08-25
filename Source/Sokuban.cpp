@@ -6,6 +6,10 @@
 #include <memory>
 #include <string>
 
+enum class GameState { MENU, GAME };
+GameState gameState = GameState::MENU;
+
+
 // --- GameObject: encapsulated, drawable wrapper for either a rectangle or a textured sprite ---
 class GameObject : public sf::Drawable {
 public:
@@ -241,34 +245,73 @@ int main() {
         }
     }
 
-    // --- Place an immovable special box at center (example) ---
-    const int centerX = MAP_W / 2;
-    const int centerY = MAP_H / 2;
-    delete tiles[centerY][centerX];
-    tiles[centerY][centerX] = new Box(&specialBoxTex, TILE - 4.f);
-    tiles[centerY][centerX]->setPosition(sf::Vector2f(centerX * TILE, centerY * TILE));
-
-    // --- Place a couple of pushable boxes (player can push these) ---
-    const int pb1X = centerX + 1;
-    const int pb1Y = centerY;
-    delete tiles[pb1Y][pb1X];
-    tiles[pb1Y][pb1X] = new PushableBox(&pushableBoxTex, TILE - 4.f);
-    tiles[pb1Y][pb1X]->setPosition(sf::Vector2f(pb1X * TILE, pb1Y * TILE));
-
-    const int pb2X = centerX - 2;
-    const int pb2Y = centerY;
-    delete tiles[pb2Y][pb2X];
-    tiles[pb2Y][pb2X] = new PushableBox(&pushableBoxTex, TILE - 4.f);
-    tiles[pb2Y][pb2X]->setPosition(sf::Vector2f(pb2X * TILE, pb2Y * TILE));
-
-    // --- Place a portal for testing ---
-    const int portalX = centerX + 3;
-    const int portalY = centerY + 2;
-    delete tiles[portalY][portalX];
-    tiles[portalY][portalX] = new Portal(portalTex.getSize().x > 0 ? &portalTex : nullptr, TILE - 1.f);
-    tiles[portalY][portalX]->setPosition(sf::Vector2f(portalX * TILE, portalY * TILE));
-
-
+    // --- Initialize map (checkerboard) with plain GameObject floor instances ---
+    for (int y = 0; y < MAP_H; ++y) {
+        for (int x = 0; x < MAP_W; ++x) {
+            tiles[y][x] = makeFloorAt(x, y);
+        }
+    }
+    
+    // --- Place immovable wall boxes around the border ---
+    for (int x = 0; x < MAP_W; ++x) {
+        delete tiles[0][x];
+        tiles[0][x] = new Box(&specialBoxTex, TILE - 2.f);
+        tiles[0][x]->setPosition(sf::Vector2f(x * TILE, 0));
+    
+        delete tiles[MAP_H-1][x];
+        tiles[MAP_H-1][x] = new Box(&specialBoxTex, TILE - 2.f);
+        tiles[MAP_H-1][x]->setPosition(sf::Vector2f(x * TILE, (MAP_H-1) * TILE));
+    }
+    for (int y = 0; y < MAP_H; ++y) {
+        delete tiles[y][0];
+        tiles[y][0] = new Box(&specialBoxTex, TILE - 2.f);
+        tiles[y][0]->setPosition(sf::Vector2f(0, y * TILE));
+    
+        delete tiles[y][MAP_W-1];
+        tiles[y][MAP_W-1] = new Box(&specialBoxTex, TILE - 2.f);
+        tiles[y][MAP_W-1]->setPosition(sf::Vector2f((MAP_W-1) * TILE, y * TILE));
+    }
+    
+    // --- Add extra immovable wall clusters (obstacles) ---
+    std::vector<std::pair<int,int>> wallSpots = {
+        {MAP_W/2, MAP_H/2},           // dead center
+        {MAP_W/2-2, MAP_H/2}, {MAP_W/2+2, MAP_H/2}, // horizontal blockers
+        {MAP_W/2, MAP_H/2-2}, {MAP_W/2, MAP_H/2+2}, // vertical blockers
+        {5,5}, {5,6}, {6,5},          // small block in top-left
+        {MAP_W-6, MAP_H-6}, {MAP_W-5, MAP_H-6}, {MAP_W-6, MAP_H-5} // small block in bottom-right
+    };
+    for (auto [wx,wy] : wallSpots) {
+        delete tiles[wy][wx];
+        tiles[wy][wx] = new Box(&specialBoxTex, TILE - 2.f);
+        tiles[wy][wx]->setPosition(sf::Vector2f(wx * TILE, wy * TILE));
+    }
+    
+    // --- Scatter pushable boxes ---
+    std::vector<std::pair<int,int>> pushableSpots = {
+        {3,3}, {7,4}, {10,6}, {12,8}, {MAP_W/2-3, MAP_H/2-1},
+        {MAP_W/2+3, MAP_H/2+1}, {8, MAP_H-5}, {MAP_W-8, 5}
+    };
+    for (auto [bx,by] : pushableSpots) {
+        delete tiles[by][bx];
+        tiles[by][bx] = new PushableBox(&pushableBoxTex, TILE - 4.f);
+        tiles[by][bx]->setPosition(sf::Vector2f(bx * TILE, by * TILE));
+    }
+    
+    // --- Place multiple portals ---
+    std::vector<std::pair<int,int>> portalSpots = {
+        {MAP_W/2+4, MAP_H/2+3},
+        {4, MAP_H-4},
+        {MAP_W-5, 4},
+        {MAP_W/2, 3}
+    };
+    for (auto [px,py] : portalSpots) {
+        delete tiles[py][px];
+        tiles[py][px] = new Portal(portalTex.getSize().x > 0 ? &portalTex : nullptr, TILE - 1.f);
+        tiles[py][px]->setPosition(sf::Vector2f(px * TILE, py * TILE));
+    }
+    
+    
+    
     // --- Player 1 setup (sprite from Assets/Player1.jpg, WASD) ---
     sf::Sprite player1(player1Tex);
     float desiredSize = TILE - 4.f;
@@ -364,7 +407,7 @@ int main() {
         else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::D)) p1_dx = 1;
 
         // Player 2 (Arrow keys)
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::Up))    p2_dy = -1;
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::Up)) p2_dy = -1;
         else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::Down))  p2_dy = 1;
         else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::Left))  p2_dx = -1;
         else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scan::Right)) p2_dx = 1;
