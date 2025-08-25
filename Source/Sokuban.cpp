@@ -13,7 +13,27 @@ GameState gameState = GameState::MENU;
 // --- GameObject: encapsulated, drawable wrapper for either a rectangle or a textured sprite ---
 class GameObject : public sf::Drawable {
 public:
-    GameObject() : isPenetrate(false) {}
+    // tex pointer must outlive this object (textures are usually owned in main)
+    GameObject(const sf::Texture* tex = nullptr, float desiredSize = 0.f)
+        : isPenetrate(false)
+    {
+        shape.setFillColor(sf::Color::White);
+
+        if (tex) {
+            sprite.emplace(*tex);
+
+            if (desiredSize > 0.f) {
+                auto tsz = tex->getSize();   // ✅ access through the object, not pointer
+                if (tsz.x > 0 && tsz.y > 0) {
+                    sprite->setScale(sf::Vector2f(
+                        desiredSize / static_cast<float>(tsz.x),
+                        desiredSize / static_cast<float>(tsz.y)
+                    ));
+                }
+                shape.setSize(sf::Vector2f(desiredSize, desiredSize));
+            }
+        }
+    }
 
     virtual ~GameObject() = default;
 
@@ -182,6 +202,35 @@ int main() {
     winnerText.setFillColor(sf::Color::Black);
     winnerText.setPosition(sf::Vector2f(MAP_W * TILE / 2 - 150.f, MAP_H * TILE / 2 - 40.f));
 
+    // --- Menu background ---
+    sf::Texture menuBgTex;
+    if (!menuBgTex.loadFromFile("Assets/backround.jpg")) {
+        std::cerr << "Failed to load Assets/backround.jpg\n";
+    }
+    sf::Sprite menuBg(menuBgTex);
+    {
+        auto bgSize = menuBgTex.getSize();
+        if (bgSize.x > 0 && bgSize.y > 0) {
+            menuBg.setScale(sf::Vector2f(
+                static_cast<float>(winW) / static_cast<float>(bgSize.x),
+                static_cast<float>(winH) / static_cast<float>(bgSize.y)
+            ));
+        }
+    }
+
+    // --- Menu buttons (SFML 3 constructors) ---
+    sf::Text startButton(font);
+    startButton.setString("Start");
+    startButton.setCharacterSize(48);
+    startButton.setFillColor(sf::Color::Black);
+    startButton.setPosition(sf::Vector2f(winW * 0.45f, winH * 0.45f));
+
+    sf::Text exitButton(font);
+    exitButton.setString("Exit");
+    exitButton.setCharacterSize(48);
+    exitButton.setFillColor(sf::Color::Black);
+    exitButton.setPosition(sf::Vector2f(winW * 0.45f, winH * 0.60f));
+
     // --- Box spawner setup ---
     sf::Clock boxSpawnClock;
 
@@ -227,16 +276,24 @@ int main() {
         tiles[y] = new GameObject*[MAP_W];
     }
 
-    // Helper: set floor tile properties (size, position, color)
+    // Load this once (outside the lambda, keep it alive!)
+    sf::Texture floorTexture;
+    if (!floorTexture.loadFromFile("Assets/floor.jpg")) {
+        std::cerr << "Failed to load Assets/floor.jpg\n";
+    }
+    
+    // --- Floor helper ---
     auto makeFloorAt = [&](int x, int y) -> GameObject* {
-        GameObject* g = new GameObject();
+        GameObject* g = new GameObject(&floorTexture, TILE - 2.f);
         g->setSize(sf::Vector2f(TILE - 1.f, TILE - 1.f));
         g->setPosition(sf::Vector2f(x * TILE, y * TILE));
-        bool dark = ((x + y) % 2) == 0;
-        g->setFillColor(dark ? sf::Color(220, 226, 234) : sf::Color(240, 244, 248));
-        g->isPenetrate = false; // walkable
+    
+    
+        g->isPenetrate = false;       // walkable
+    
         return g;
     };
+
 
     // --- Initialize map (checkerboard) with plain GameObject floor instances ---
     for (int y = 0; y < MAP_H; ++y) {
