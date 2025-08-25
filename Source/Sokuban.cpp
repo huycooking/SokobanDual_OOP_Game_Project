@@ -113,8 +113,8 @@ public:
 int main() {
 
     // --- Map constants ---
-    constexpr int MAP_W = 26;
-    constexpr int MAP_H = 20;
+    constexpr int MAP_W = 16 * 2;
+    constexpr int MAP_H = 9 * 2;
     constexpr float TILE = 37.f; // tile size in pixels
     const unsigned winW = static_cast<unsigned>(MAP_W * TILE);
     const unsigned winH = static_cast<unsigned>(MAP_H * TILE);
@@ -147,7 +147,7 @@ int main() {
     player2ScoreText.setFont(font);
     player2ScoreText.setCharacterSize(24);
     player2ScoreText.setFillColor(sf::Color::Blue);
-    player2ScoreText.setPosition(sf::Vector2f(TILE* 22,10));
+    player2ScoreText.setPosition(sf::Vector2f(MAP_W * TILE - TILE * 4,10));
 
     // --- Load textures (kept alive in main) ---
     // immovable special box texture
