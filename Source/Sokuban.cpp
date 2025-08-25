@@ -178,6 +178,8 @@ int main() {
     winnerText.setFillColor(sf::Color::Black);
     winnerText.setPosition(sf::Vector2f(MAP_W * TILE / 2 - 150.f, MAP_H * TILE / 2 - 40.f));
 
+    // --- Box spawner setup ---
+    sf::Clock boxSpawnClock;
 
     // --- Load textures (kept alive in main) ---
     // immovable special box texture
@@ -212,6 +214,8 @@ int main() {
         std::cerr << "Failed to load Assets/portal.jpg, using pink fallback\n";
     }
 
+    // --- Random number generator ---
+    std::srand(static_cast<unsigned>(std::time(nullptr)));
 
     // --- Allocate raw 2D array for tiles (pointers to GameObject so we can store different derived objects) ---
     GameObject*** tiles = new GameObject**[MAP_H];
@@ -317,6 +321,28 @@ int main() {
                 }
             }
         }
+
+        // ---------- Automatic Box Spawning ----------
+        if (!gameOver && boxSpawnClock.getElapsedTime().asSeconds() >= 2.f) {
+            boxSpawnClock.restart();
+        
+            // Try to place a box in a random empty tile
+            int randX = std::rand() % MAP_W;
+            int randY = std::rand() % MAP_H;
+        
+            GameObject* target = tiles[randY][randX];
+        
+            // Only replace if tile is a floor (not a box, portal, or wall)
+            if (!target->isPushable() && !target->isPortal()) {
+                // Delete current floor
+                delete tiles[randY][randX];
+            
+                // Place new pushable box
+                tiles[randY][randX] = new PushableBox(&pushableBoxTex, TILE - 4.f);
+                tiles[randY][randX]->setPosition(sf::Vector2f(randX * TILE, randY * TILE));
+            }
+        }
+
 
         // Event loop: only use events for window/system events now
         while (auto ev = window.pollEvent()) {
