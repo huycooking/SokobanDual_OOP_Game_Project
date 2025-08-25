@@ -100,15 +100,28 @@ public:
 // --- Portal: special floor tile that 'consumes' a pushable box and awards points ---
 class Portal : public GameObject {
 public:
-    Portal(float desiredSize = 0.f) {
-        // Portal should be *walkable* so a box can be pushed into it:
+    Portal(const sf::Texture* tex = nullptr, float desiredSize = 0.f) {
         isPenetrate = false; // walkable like floor
-        if (desiredSize > 0.f) shape.setSize(sf::Vector2f(desiredSize, desiredSize));
-        shape.setFillColor(sf::Color(160, 32, 240)); // purple-ish to stand out
+        if (tex) {
+            sprite.emplace(*tex);
+            if (desiredSize > 0.f) {
+                auto tsz = tex->getSize();
+                if (tsz.x > 0 && tsz.y > 0) {
+                    sprite->setScale(sf::Vector2f(desiredSize / static_cast<float>(tsz.x),
+                                                  desiredSize / static_cast<float>(tsz.y)));
+                }
+                shape.setSize(sf::Vector2f(desiredSize, desiredSize));
+            }
+        } else {
+            // fallback: pink block if texture not provided
+            shape.setSize(sf::Vector2f(desiredSize, desiredSize));
+            shape.setFillColor(sf::Color(255, 105, 180)); // hot pink fallback
+        }
     }
-    
+
     bool isPortal() const override { return true; }
 };
+
 
 int main() {
 
@@ -149,6 +162,23 @@ int main() {
     player2ScoreText.setFillColor(sf::Color::Blue);
     player2ScoreText.setPosition(sf::Vector2f(MAP_W * TILE - TILE * 4,10));
 
+    // --- Timer setup ---
+    sf::Clock gameClock;                   // to measure elapsed time
+    const int GAME_DURATION = 60;          // 1 min in seconds
+    sf::Text timerText(font);
+    timerText.setFont(font);
+    timerText.setCharacterSize(24);
+    timerText.setFillColor(sf::Color::Black);
+    timerText.setPosition(sf::Vector2f(MAP_W * TILE / 2 - 40.f, 10)); // center-ish
+
+    bool gameOver = false;   // track if timer has ended
+    sf::Text winnerText(font);
+    winnerText.setFont(font);
+    winnerText.setCharacterSize(48);
+    winnerText.setFillColor(sf::Color::Black);
+    winnerText.setPosition(sf::Vector2f(MAP_W * TILE / 2 - 150.f, MAP_H * TILE / 2 - 40.f));
+
+
     // --- Load textures (kept alive in main) ---
     // immovable special box texture
     sf::Texture specialBoxTex;
@@ -175,6 +205,13 @@ int main() {
         std::cerr << "Failed to load Assets/Player2.jpg\n";
         return 1;
     }
+
+    // portal texture
+    sf::Texture portalTex;
+    if (!portalTex.loadFromFile("Assets/portal.jpg")) {
+        std::cerr << "Failed to load Assets/portal.jpg, using pink fallback\n";
+    }
+
 
     // --- Allocate raw 2D array for tiles (pointers to GameObject so we can store different derived objects) ---
     GameObject*** tiles = new GameObject**[MAP_H];
@@ -224,8 +261,9 @@ int main() {
     const int portalX = centerX + 3;
     const int portalY = centerY + 2;
     delete tiles[portalY][portalX];
-    tiles[portalY][portalX] = new Portal(TILE - 1.f);
+    tiles[portalY][portalX] = new Portal(portalTex.getSize().x > 0 ? &portalTex : nullptr, TILE - 1.f);
     tiles[portalY][portalX]->setPosition(sf::Vector2f(portalX * TILE, portalY * TILE));
+
 
     // --- Player 1 setup (sprite from Assets/Player1.jpg, WASD) ---
     sf::Sprite player1(player1Tex);
@@ -254,6 +292,32 @@ int main() {
 
     // --- Game loop ---
     while (window.isOpen()) {
+        // ---------- Timer update ----------
+        if (!gameOver) {
+            int elapsed = static_cast<int>(gameClock.getElapsedTime().asSeconds());
+            int remaining = GAME_DURATION - elapsed;
+            if (remaining < 0) remaining = 0;
+        
+            int minutes = remaining / 60;
+            int seconds = remaining % 60;
+            timerText.setString(
+                (seconds < 10 ? "0" : "") + std::to_string(minutes) + ":" + (seconds < 10 ? "0" : "") + std::to_string(seconds)
+            );
+        
+            if (remaining <= 0) {
+                gameOver = true;
+            
+                // Decide winner
+                if (player1Score > player2Score) {
+                    winnerText.setString("Player 1 Wins!");
+                } else if (player2Score > player1Score) {
+                    winnerText.setString("Player 2 Wins!");
+                } else {
+                    winnerText.setString("Draw!");
+                }
+            }
+        }
+
         // Event loop: only use events for window/system events now
         while (auto ev = window.pollEvent()) {
             if (ev->is<sf::Event::Closed>()) {
@@ -378,6 +442,14 @@ int main() {
         // Draw score display
         window.draw(player1ScoreText);
         window.draw(player2ScoreText);
+
+        // Draw timer
+        window.draw(timerText);
+
+        // If game over, show winner
+        if (gameOver) {
+            window.draw(winnerText);
+        }
         
         window.display();
     }
