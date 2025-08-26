@@ -3,7 +3,7 @@
 
 class Player : public GameObject {
 public:
-    Player(const sf::Texture* tex, float desiredSize, int playerNumber);
+    Player(const sf::Texture* tex, float tileSize, int playerNumber);
     
     // GameObject overrides
     bool isPushable() const override { return false; }
@@ -13,8 +13,8 @@ public:
     void setGridPosition(int x, int y);
     void move(int dx, int dy);
     
-    int getX() const { return gridX; }
-    int getY() const { return gridY; }
+    int getGridX() const { return gridX; }
+    int getGridY() const { return gridY; }
     int getPlayerNumber() const { return playerNumber; }
     int getScore() const { return score; }
     void addScore(int points) { score += points; }

@@ -1,8 +1,8 @@
 #include "Player.hpp"
 #include <iostream>
 
-Player::Player(const sf::Texture* tex, float desiredSize, int playerNumber)
-    : GameObject(tex, desiredSize), playerNumber(playerNumber), score(0), tileSize(desiredSize) {
+Player::Player(const sf::Texture* tex, float tileSize, int playerNumber)
+    : GameObject(tex, tileSize - 4.f), playerNumber(playerNumber), score(0), tileSize(tileSize) {
     
     // Players don't block movement
     blocksFlag = false;
@@ -15,6 +15,7 @@ Player::Player(const sf::Texture* tex, float desiredSize, int playerNumber)
 void Player::setGridPosition(int x, int y) {
     gridX = x;
     gridY = y;
+    // Convert grid coordinates to pixel coordinates with padding
     setPosition(sf::Vector2f(x * tileSize + 2.f, y * tileSize + 2.f));
 }
 
