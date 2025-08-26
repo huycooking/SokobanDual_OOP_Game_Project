@@ -22,3 +22,5 @@ void Player::setGridPosition(int x, int y) {
 void Player::move(int dx, int dy) {
     setGridPosition(gridX + dx, gridY + dy);
 }
+
+Player::Player() : score(0) {} // only exist here to encounter bugs in Game.cpp

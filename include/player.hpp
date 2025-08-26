@@ -3,6 +3,7 @@
 
 class Player : public GameObject {
 public:
+    Player();
     Player(const sf::Texture* tex, float tileSize, int playerNumber);
     
     // GameObject overrides

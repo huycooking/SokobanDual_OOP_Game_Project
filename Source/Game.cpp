@@ -6,8 +6,6 @@
 Game::Game() 
     : window(sf::VideoMode({static_cast<unsigned>(MAP_W * TILE), static_cast<unsigned>(MAP_H * TILE)}), "Sokuban dual!"),
       gameMap(MAP_W, MAP_H, TILE),
-      player1(&player1Tex, TILE, 1),
-      player2(&player2Tex, TILE, 2),
       gameOver(false),
       // Initialize sf::Sound with an empty sound buffer (we'll set it properly later)
       gainPointsSound(gainPointsBuffer),
@@ -23,15 +21,20 @@ Game::Game()
     std::srand(static_cast<unsigned>(std::time(nullptr)));
     
     // Load textures
-    if (!player1Tex.loadFromFile("Assets/Player1.jpg")) {
-        std::cerr << "Failed to load Assets/Player1.jpg\n";
-    }
-    if (!player2Tex.loadFromFile("Assets/Player2.jpg")) {
-        std::cerr << "Failed to load Assets/Player2.jpg\n";
-    }
     if (!woodenBoxTex.loadFromFile("Assets/box.jpg")) {
         std::cerr << "Failed to load Assets/box.jpg\n";
     }
+
+    if (!player1Tex.loadFromFile("Assets/Player1.jpg")) {
+        std::cerr << "Failed to load Player1 texture\n";
+    }
+    if (!player2Tex.loadFromFile("Assets/Player2.jpg")) {
+        std::cerr << "Failed to load Player2 texture\n";
+    }
+    
+    // Now construct players using placement new
+    new (&player1) Player(&player1Tex, TILE, 1);
+    new (&player2) Player(&player2Tex, TILE, 2);
     
     // Load audio
     if (!themeMusic.openFromFile("Assets/theme.mp3")) {
