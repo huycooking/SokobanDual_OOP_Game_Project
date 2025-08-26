@@ -15,13 +15,13 @@
 #include "Box.hpp"
 #include "PushableBox.hpp"
 #include "Portal.hpp"
+#include "Map.hpp"
 
 enum class GameState { MENU, GAME };
 GameState gameState = GameState::MENU;
 
 
 int main() {
-
     // --- Map constants ---
     constexpr int MAP_W = 16 * 2;
     constexpr int MAP_H = 9 * 2;
@@ -107,21 +107,7 @@ int main() {
     // --- Box spawner setup ---
     sf::Clock boxSpawnClock;
 
-    // --- Load textures (kept alive in main) ---
-    // immovable special box texture
-    sf::Texture specialBoxTex;
-    if (!specialBoxTex.loadFromFile("Assets/SpecialBox.jpg")) {
-        std::cerr << "Failed to load Assets/SpecialBox.jpg\n";
-        return 1;
-    }
-
-    // pushable box texture (user requested box.jpg in Assets/)
-    sf::Texture pushableBoxTex;
-    if (!pushableBoxTex.loadFromFile("Assets/box.jpg")) {
-        std::cerr << "Failed to load Assets/box.jpg\n";
-        return 1;
-    }
-
+    // --- Load textures for players ---
     // player textures
     sf::Texture player1Tex;
     if (!player1Tex.loadFromFile("Assets/Player1.jpg")) {
@@ -134,91 +120,13 @@ int main() {
         return 1;
     }
 
-    // portal texture
-    sf::Texture portalTex;
-    if (!portalTex.loadFromFile("Assets/portal.jpg")) {
-        std::cerr << "Failed to load Assets/portal.jpg, using pink fallback\n";
-    }
-
     // --- Random number generator ---
     std::srand(static_cast<unsigned>(std::time(nullptr)));
 
-    // --- Allocate raw 2D array for tiles (pointers to GameObject so we can store different derived objects) ---
-    GameObject*** tiles = new GameObject**[MAP_H];
-    for (int y = 0; y < MAP_H; ++y) {
-        tiles[y] = new GameObject*[MAP_W];
-    }
+    // --- Create Map object ---
+    Map gameMap(MAP_W, MAP_H, TILE);
+    gameMap.populateInitialState();
 
-    // Load this once (outside the lambda, keep it alive!)
-    sf::Texture floorTexture;
-    if (!floorTexture.loadFromFile("Assets/floor.jpg")) {
-        std::cerr << "Failed to load Assets/floor.jpg\n";
-    }
-    
-    // --- Floor helper ---
-    // Requirement: makeFloorAt creates Floor class explicitly
-    auto makeFloorAt = [&](int x, int y) -> Floor* {
-        Floor* g = new Floor(&floorTexture, TILE);
-        g->setSize(sf::Vector2f(TILE, TILE));
-        g->setPosition(sf::Vector2f(x * TILE, y * TILE));
-        return g;
-    };
-
-    // --- Initialize map (checkerboard) with floor instances ---
-    for (int y = 0; y < MAP_H; ++y) {
-        for (int x = 0; x < MAP_W; ++x) {
-            tiles[y][x] = makeFloorAt(x, y);
-        }
-    }
-
-    // (Second initialization loop was present in your original; keeping it unchanged)
-    for (int y = 0; y < MAP_H; ++y) {
-        for (int x = 0; x < MAP_W; ++x) {
-            tiles[y][x] = makeFloorAt(x, y);
-        }
-    }
-
-    
-    // --- Add extra immovable wall clusters (obstacles) ---
-    std::vector<std::pair<int,int>> wallSpots = {
-        {MAP_W/2, MAP_H/2},           // dead center
-        {MAP_W/2-2, MAP_H/2}, {MAP_W/2+2, MAP_H/2}, // horizontal blockers
-        {MAP_W/2, MAP_H/2-2}, {MAP_W/2, MAP_H/2+2}, // vertical blockers
-        {5,5}, {5,6}, {6,5},          // small block in top-left
-        {MAP_W-6, MAP_H-6}, {MAP_W-5, MAP_H-6}, {MAP_W-6, MAP_H-5} // small block in bottom-right
-    };
-    for (auto [wx,wy] : wallSpots) {
-        delete tiles[wy][wx];
-        tiles[wy][wx] = new Box(&specialBoxTex, TILE - 2.f);
-        tiles[wy][wx]->setPosition(sf::Vector2f(wx * TILE, wy * TILE));
-    }
-    
-    // --- Scatter pushable boxes ---
-    std::vector<std::pair<int,int>> pushableSpots = {
-        {3,3}, {7,4}, {10,6}, {12,8}, {MAP_W/2-3, MAP_H/2-1},
-        {MAP_W/2+3, MAP_H/2+1}, {8, MAP_H-5}, {MAP_W-8, 5}
-    };
-    for (auto [bx,by] : pushableSpots) {
-        delete tiles[by][bx];
-        tiles[by][bx] = new PushableBox(&pushableBoxTex, TILE - 4.f);
-        tiles[by][bx]->setPosition(sf::Vector2f(bx * TILE, by * TILE));
-    }
-    
-    // --- Place multiple portals ---
-    std::vector<std::pair<int,int>> portalSpots = {
-        {MAP_W/2+4, MAP_H/2+3},
-        {4, MAP_H-4},
-        {MAP_W-5, 4},
-        {MAP_W/2, 3}
-    };
-    for (auto [px,py] : portalSpots) {
-        delete tiles[py][px];
-        tiles[py][px] = new Portal(portalTex.getSize().x > 0 ? &portalTex : nullptr, TILE);
-        tiles[py][px]->setSize(sf::Vector2f(TILE, TILE));
-        tiles[py][px]->setPosition(sf::Vector2f(px * TILE, py * TILE));
-    }
-    
-    
     // --- Player 1 setup (sprite from Assets/Player1.jpg, WASD) ---
     sf::Sprite player1(player1Tex);
     float desiredSize = TILE - 4.f;
@@ -275,24 +183,8 @@ int main() {
         // ---------- Automatic Box Spawning ----------
         if (!gameOver && boxSpawnClock.getElapsedTime().asSeconds() >= 2.f) {
             boxSpawnClock.restart();
-        
-            // Try to place a box in a random empty tile
-            int randX = std::rand() % MAP_W;
-            int randY = std::rand() % MAP_H;
-        
-            GameObject* target = tiles[randY][randX];
-        
-            // Only replace if tile is a floor (not a box, portal, or wall)
-            if (!target->isPushable() && !target->isPortal()) {
-                // Delete current floor
-                delete tiles[randY][randX];
-            
-                // Place new pushable box
-                tiles[randY][randX] = new PushableBox(&pushableBoxTex, TILE - 4.f);
-                tiles[randY][randX]->setPosition(sf::Vector2f(randX * TILE, randY * TILE));
-            }
+            gameMap.spawnRandomBox();
         }
-
 
         // Event loop: only use events for window/system events now
         while (auto ev = window.pollEvent()) {
@@ -321,65 +213,67 @@ int main() {
 
         // helper used already in your code (keeps push logic centralized)
         auto try_move_player = [&](int &px, int &py, int dx, int dy, int otherX, int otherY, int playerNum) {
-            if (dx == 0 && dy == 0) return; // no movement intended
-            int newX = px + dx;
-            int newY = py + dy;
+    if (dx == 0 && dy == 0) return; // no movement intended
+    int newX = px + dx;
+    int newY = py + dy;
 
-            // prevent moving onto the other player's *current* position
-            if (newX == otherX && newY == otherY) return;
+    // prevent moving onto the other player's *current* position
+    if (newX == otherX && newY == otherY) return;
 
-            // bounds check
-            if (newX < 0 || newX >= MAP_W || newY < 0 || newY >= MAP_H) return;
+    // bounds check
+    if (newX < 0 || newX >= MAP_W || newY < 0 || newY >= MAP_H) return;
 
-            GameObject* target = tiles[newY][newX];
+    GameObject* target = gameMap.getTile(newX, newY);
 
-            // if target does not block, move into it
-            if (!target->blocks()) {
-                px = newX;
-                py = newY;
-                return;
-            }
+    // if target does not block, move into it
+    if (!target->blocks()) {
+        px = newX;
+        py = newY;
+        return;
+    }
 
-            PushableBox* pb = dynamic_cast<PushableBox*>(target);
-            if (pb) {
-                int boxNewX = newX + dx;
-                int boxNewY = newY + dy;
-                if (boxNewX < 0 || boxNewX >= MAP_W || boxNewY < 0 || boxNewY >= MAP_H) return;
-                if ((boxNewX == otherX && boxNewY == otherY) || (boxNewX == px && boxNewY == py)) return;
-                GameObject* boxTarget = tiles[boxNewY][boxNewX];
-                
-                // Check if box is being pushed into a portal
-                if (boxTarget->isPortal()) {
-                    // Box disappears into portal, player gets points
-                    delete tiles[newY][newX]; // Delete the pushable box
-                    tiles[newY][newX] = makeFloorAt(newX, newY); // Replace with floor
-                    
-                    // Award points to the player who pushed it
-                    if (playerNum == 1) {
-                        player1Score += 10;
-                    } else {
-                        player2Score += 10;
-                    }
-                    
-                    px = newX; // Player moves to where box was
-                    py = newY;
-                    return;
-                }
-                
-                if (!boxTarget->blocks()) {
-                    delete boxTarget;
-                    tiles[boxNewY][boxNewX] = tiles[newY][newX];
-                    tiles[boxNewY][boxNewX]->setPosition(sf::Vector2f(boxNewX * TILE, boxNewY * TILE));
-                    tiles[newY][newX] = makeFloorAt(newX, newY);
-                    px = newX;
-                    py = newY;
-                } else {
-                    return;
-                }
+    PushableBox* pb = dynamic_cast<PushableBox*>(target);
+    if (pb) {
+        int boxNewX = newX + dx;
+        int boxNewY = newY + dy;
+        if (boxNewX < 0 || boxNewX >= MAP_W || boxNewY < 0 || boxNewY >= MAP_H) return;
+        if ((boxNewX == otherX && boxNewY == otherY) || (boxNewX == px && boxNewY == py)) return;
+        GameObject* boxTarget = gameMap.getTile(boxNewX, boxNewY);
+        
+        // Check if box is being pushed into a portal
+        if (boxTarget->isPortal()) {
+            // Box disappears into portal, player gets points
+            gameMap.setTile(newX, newY, gameMap.makeFloorAt(newX, newY));
+            
+            // Award points to the player who pushed it
+            if (playerNum == 1) {
+                player1Score += 10;
             } else {
-                return;
+                player2Score += 10;
             }
-        };
+            
+            px = newX; // Player moves to where box was
+            py = newY;
+            return;
+        }
+        
+        if (!boxTarget->blocks()) {
+            // Create a new pushable box at the target position
+            PushableBox* newBox = gameMap.createPushableBox(boxNewX, boxNewY);
+            gameMap.setTile(boxNewX, boxNewY, newBox);
+            
+            // Replace old position with floor
+            gameMap.setTile(newX, newY, gameMap.makeFloorAt(newX, newY));
+            
+            px = newX;
+            py = newY;
+        } else {
+            return;
+        }
+    } else {
+        return;
+    }
+};
 
         // Simple simultaneous-move resolution:
         // - compute intended destinations and avoid allowing both players to move into the same tile
@@ -412,7 +306,7 @@ int main() {
 
         // ---------- Drawing ----------
         window.clear(sf::Color::Black);
-        for (int y = 0; y < MAP_H; ++y) for (int x = 0; x < MAP_W; ++x) window.draw(*tiles[y][x]);
+        gameMap.draw(window);
         window.draw(player1);
         window.draw(player2);
         
@@ -430,15 +324,6 @@ int main() {
         
         window.display();
     }
-
-    // --- Free memory ---
-    for (int y = 0; y < MAP_H; ++y) {
-        for (int x = 0; x < MAP_W; ++x) {
-            delete tiles[y][x];
-        }
-        delete[] tiles[y];
-    }
-    delete[] tiles;
 
     return 0;
 }

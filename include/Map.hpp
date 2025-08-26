@@ -9,33 +9,37 @@
 
 class Map {
 public:
+    // --- Constructor & Destructor ---
     Map(int width, int height, float tileSize);
     ~Map();
 
+    // --- Public Interface ---
     void draw(sf::RenderWindow& window);
-    GameObject* getTile(int x, int y);
+    void populateInitialState();
+    void spawnRandomBox();
+    
+    // --- Tile Accessors ---
+    GameObject* getTile(int x, int y) const;
     void setTile(int x, int y, GameObject* obj);
+    Floor* makeFloorAt(int x, int y);
 
+    // --- Getters for map properties ---
     int getWidth() const { return MAP_W; }
     int getHeight() const { return MAP_H; }
     float getTileSize() const { return TILE; }
-
-    // Helpers for spawning objects
-    void placeWalls(const sf::Texture& wallTex);
-    void placePushableBoxes(const sf::Texture& pushableTex);
-    void placePortals(const sf::Texture* portalTex);
-
-    Floor* makeFloorAt(int x, int y);
+    PushableBox* createPushableBox(int x, int y);
 
 private:
+    // --- Map properties ---
     int MAP_W, MAP_H;
     float TILE;
 
-    // Textures that the map owns
+    // --- Textures owned by the map ---
     sf::Texture floorTexture;
-    sf::Texture specialBoxTex;
+    sf::Texture specialBoxTex;      // For immovable walls
     sf::Texture pushableBoxTex;
     sf::Texture portalTex;
 
+    // --- The game board ---
     GameObject*** tiles;
 };
