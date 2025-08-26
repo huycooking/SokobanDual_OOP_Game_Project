@@ -1,7 +1,10 @@
 #pragma once
-#include <SFML/Graphics.hpp>  // SFML 3.0.0 syntax
-#include <vector>
-#include <string>
+#include <SFML/Graphics.hpp>
+#include <array>
+#include <optional>
 #include <iostream>
-#include <memory>  // For smart pointers
-#include <chrono>  // For timing
+#include <memory>
+#include <string>
+#include <vector>
+#include <cstdlib>
+#include <ctime>
