@@ -9,152 +9,15 @@
 #include <cstdlib>
 #include <ctime>
 
+// include headers
+#include "GameObject.hpp"
+#include "Floor.hpp"
+#include "Box.hpp"
+#include "PushableBox.hpp"
+#include "Portal.hpp"
+
 enum class GameState { MENU, GAME };
 GameState gameState = GameState::MENU;
-
-// --- GameObject: encapsulated, drawable wrapper for either a rectangle or a textured sprite ---
-class GameObject : public sf::Drawable {
-public:
-    // tex pointer must outlive this object (textures are usually owned in main)
-    GameObject(const sf::Texture* tex = nullptr, float desiredSize = 0.f)
-    {
-        shape.setFillColor(sf::Color::White);
-
-        if (tex) {
-            sprite.emplace(*tex);
-
-            if (desiredSize > 0.f) {
-                auto tsz = tex->getSize();   // ✅ access through the object, not pointer
-                if (tsz.x > 0 && tsz.y > 0) {
-                    sprite->setScale(sf::Vector2f(
-                        desiredSize / static_cast<float>(tsz.x),
-                        desiredSize / static_cast<float>(tsz.y)
-                    ));
-                }
-                shape.setSize(sf::Vector2f(desiredSize, desiredSize));
-            }
-        }
-    }
-
-    virtual ~GameObject() = default;
-
-    // Public API
-    virtual void setSize(const sf::Vector2f& size) {
-        shape.setSize(size);
-    }
-
-    virtual void setPosition(const sf::Vector2f& pos) {
-        shape.setPosition(pos);
-        if (sprite) sprite->setPosition(pos);
-    }
-
-    virtual void setFillColor(const sf::Color& color) {
-        shape.setFillColor(color);
-        if (sprite) {
-            // sprite doesn't have fill color; keep rectangle in sync
-        }
-    }
-
-    // Public accessor for whether this tile blocks movement.
-    // semantics: true => blocks movement (cannot be walked through)
-    bool blocks() const { return blocksFlag; }
-
-    // By default not pushable (pure virtual -> class remains abstract)
-    virtual bool isPushable() const = 0;
-
-    // Check if this is a portal
-    virtual bool isPortal() const = 0;
-
-protected:
-    // derived classes may set blocksFlag
-    bool blocksFlag = false;
-
-    sf::RectangleShape shape;
-    std::optional<sf::Sprite> sprite; // sf::Sprite requires a texture at construction
-
-    // draw either sprite (when textured) or the rectangle shape
-    virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const override {
-        if (sprite) target.draw(*sprite, states);
-        else target.draw(shape, states);
-    }
-};
-
-// --- Floor: default walkable tile ---
-class Floor : public GameObject {
-public:
-    Floor(const sf::Texture* tex = nullptr, float desiredSize = 0.f)
-        : GameObject(tex, desiredSize)
-    {
-        blocksFlag = false; // walkable
-    }
-
-    // Floors are never pushable
-    bool isPushable() const override { return false; }
-
-    // Floors are not portals
-    bool isPortal() const override { return false; }
-};
-
-
-// --- Box: a blocking tile with an optional texture (immovable) ---
-class Box : public GameObject {
-public:
-    // tex pointer must outlive this Box (we keep textures in main)
-    Box(const sf::Texture* tex = nullptr, float desiredSize = 0.f)
-        : GameObject(tex, desiredSize)
-    {
-        // immovable blocking tile
-        blocksFlag = true;
-
-        // (No additional sprite/size handling needed because GameObject did it if texture present)
-    }
-
-    void setSize(const sf::Vector2f& size) override {
-        shape.setSize(size);
-    }
-
-    bool isPortal() const override { return false; }
-
-    // NOTE: I kept the pushable semantics as you had previously.
-    bool isPushable() const override { return true; }
-};
-
-// --- PushableBox: a box that players can push one tile at a time ---
-class PushableBox : public GameObject {
-public:
-    PushableBox(const sf::Texture* tex = nullptr, float desiredSize = 0.f)
-        : GameObject(tex, desiredSize)
-    {
-        // blocks movement until pushed
-        blocksFlag = true;
-    }
-
-    bool isPushable() const override { return true; }
-
-    bool isPortal() const override { return false; }
-
-    void setSize(const sf::Vector2f& size) override {
-        shape.setSize(size);
-    }
-};
-
-// --- Portal: special floor tile that 'consumes' a pushable box and awards points ---
-class Portal : public GameObject {
-public:
-    Portal(const sf::Texture* tex = nullptr, float desiredSize = 0.f)
-        : GameObject(tex, desiredSize)
-    {
-        blocksFlag = false; // walkable like floor
-        if (!sprite) {
-            // fallback: pink block if texture not provided
-            if (desiredSize > 0.f) shape.setSize(sf::Vector2f(desiredSize, desiredSize));
-            shape.setFillColor(sf::Color(255, 105, 180)); // hot pink fallback
-        }
-    }
-
-    bool isPortal() const override { return true; }
-    bool isPushable() const override { return false; }
-};
 
 
 int main() {
