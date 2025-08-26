@@ -13,15 +13,11 @@
 // include headers
 #include "GameObject.hpp"
 #include "Floor.hpp"
-#include "Box.hpp"
-#include "PushableBox.hpp"
+#include "WoodenBox.hpp"
+#include "MetalBox.hpp"
 #include "Portal.hpp"
 #include "Map.hpp"
 #include "Player.hpp"
-
-enum class GameState { MENU, GAME };
-GameState gameState = GameState::MENU;
-
 
 int main() {
     // --- Map constants ---
@@ -107,8 +103,8 @@ int main() {
     }
 
     // --- Load pushable box texture ---
-    sf::Texture pushableBoxTex;
-    if (!pushableBoxTex.loadFromFile("Assets/box.jpg")) {
+    sf::Texture woodenBoxTex; 
+    if (!woodenBoxTex.loadFromFile("Assets/box.jpg")) {
         std::cerr << "Failed to load Assets/box.jpg\n";
         return 1;
     }
@@ -213,7 +209,7 @@ int main() {
                 return;
             }
 
-            PushableBox* pb = dynamic_cast<PushableBox*>(target);
+            WoodenBox* pb = dynamic_cast<WoodenBox*>(target);
             if (pb) {
                 int boxNewX = newX + dx;
                 int boxNewY = newY + dy;
@@ -240,7 +236,7 @@ int main() {
                 
                 if (!boxTarget->blocks()) {
                     // Create a new pushable box at the target position
-                    PushableBox* newBox = new PushableBox(&pushableBoxTex, TILE - 4.f);
+                    WoodenBox* newBox = new WoodenBox(&woodenBoxTex, TILE - 4.f);
                     newBox->setPosition(sf::Vector2f(boxNewX * TILE, boxNewY * TILE));
                     gameMap.setTile(boxNewX, boxNewY, newBox);
                     

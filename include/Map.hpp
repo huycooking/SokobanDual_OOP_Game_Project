@@ -3,8 +3,8 @@
 #include <vector>
 #include "GameObject.hpp"
 #include "Floor.hpp"
-#include "Box.hpp"
-#include "PushableBox.hpp"
+#include "MetalBox.hpp"
+#include "WoodenBox.hpp"
 #include "Portal.hpp"
 
 class Map {
@@ -27,7 +27,7 @@ public:
     int getWidth() const { return MAP_W; }
     int getHeight() const { return MAP_H; }
     float getTileSize() const { return TILE; }
-    PushableBox* createPushableBox(int x, int y);
+    WoodenBox* createPushableBox(int x, int y);
 
 private:
     // --- Map properties ---

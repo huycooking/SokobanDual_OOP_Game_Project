@@ -122,14 +122,14 @@ void Map::populateInitialState() {
     
     // Place walls
     for (auto [wx, wy] : wallSpots) {
-        GameObject* wall = new Box(&specialBoxTex, TILE - 2.f);
+        GameObject* wall = new MetalBox(&specialBoxTex, TILE - 2.f);
         wall->setPosition(sf::Vector2f(wx * TILE, wy * TILE));
         setTile(wx, wy, wall);
     }
 
     // Place pushable boxes
     for (auto [bx, by] : pushableSpots) {
-        GameObject* pBox = new PushableBox(&pushableBoxTex, TILE - 4.f);
+        GameObject* pBox = new WoodenBox(&pushableBoxTex, TILE - 4.f);
         pBox->setPosition(sf::Vector2f(bx * TILE, by * TILE));
         setTile(bx, by, pBox);
     }
@@ -151,7 +151,7 @@ void Map::spawnRandomBox() {
 
     // Only replace the tile if it's a basic floor (not a box, portal, or wall)
     if (dynamic_cast<Floor*>(target)) {
-        GameObject* newBox = new PushableBox(&pushableBoxTex, TILE - 4.f);
+        GameObject* newBox = new WoodenBox(&pushableBoxTex, TILE - 4.f);
         newBox->setPosition(sf::Vector2f(randX * TILE, randY * TILE));
         setTile(randX, randY, newBox);
     }
@@ -190,8 +190,8 @@ void Map::setTile(int x, int y, GameObject* obj) {
     }
 }
 
-PushableBox* Map::createPushableBox(int x, int y) {
-    PushableBox* newBox = new PushableBox(&pushableBoxTex, TILE - 4.f);
+WoodenBox* Map::createPushableBox(int x, int y) {
+    WoodenBox* newBox = new WoodenBox(&pushableBoxTex, TILE - 4.f);
     newBox->setPosition(sf::Vector2f(x * TILE, y * TILE));
     return newBox;
 }
