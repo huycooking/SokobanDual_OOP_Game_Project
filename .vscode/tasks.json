@@ -2,56 +2,48 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Build C++ file with SFML",
-      "type": "shell",
-      "command": "C:/winlibs/mingw64/bin/g++.exe",
-      "args": [
-        "-g",
+			"label": "Build C++ file with SFML",
+			"type": "cppbuild",
+			"command": "g++.exe",
+			"args": [
         "-std=c++17",
+				"-g",
+        "-static", "-static-libstdc++", "-static-libgcc",
         "-DSFML_STATIC",
-        "${workspaceFolder}/Source/Sokuban.cpp",
+        "${workspaceFolder}/Source/Sokoban.cpp",
         "-o",
-        "${workspaceFolder}/Sokuban.exe",
+        "${workspaceFolder}/Sokoban.exe",
         "-I${workspaceFolder}/sfml/include",
         "-L${workspaceFolder}/sfml/lib",
-        "-lsfml-graphics",
-        "-lsfml-window",
-        "-lsfml-system",
-        "-lsfml-audio"
-      ],
+        "-lsfml-graphics-s", "-lsfml-window-s", "-lsfml-system-s", "-lsfml-audio-s", "-lfreetype", "-lwinmm", "-lws2_32", "-luser32", "-lgdi32", "-lopengl32", "-lglu32", "-lvorbisfile", "-lvorbis", "-logg", "-lflac"
+			],
       "group": "build",
-      "problemMatcher": [
-        "$gcc"
-      ],
-      "detail": "Compiles Sokuban.cpp with SFML libraries using C++17."
-    },
+			"problemMatcher": [
+				"$gcc"
+			],
+			"detail": "Compiles Sokuban.cpp with SFML libraries using C++17."
+		},
     {
-      "label": "Copy SFML DLLs",
-      "type": "shell",
-      "command": "cmd",
-      "args": [
-        "/C",
-        "copy",
-        "${workspaceFolder}\\sfml\\bin\\*.dll",
-        "${workspaceFolder}"
-      ],
+			"label": "Build C++ file with SFML (RELEASE BUILD)",
+			"type": "cppbuild",
+			"command": "g++.exe",
+			"args": [
+        "-std=c++17",
+				"-Os", "-s",
+        "-static", "-static-libstdc++", "-static-libgcc",
+        "-DSFML_STATIC",
+        "${workspaceFolder}/Source/Sokoban.cpp",
+        "-o",
+        "${workspaceFolder}/Sokoban.exe",
+        "-I${workspaceFolder}/sfml/include",
+        "-L${workspaceFolder}/sfml/lib",
+        "-lsfml-graphics-s", "-lsfml-window-s", "-lsfml-system-s", "-lsfml-audio-s", "-lfreetype", "-lwinmm", "-lws2_32", "-luser32", "-lgdi32", "-lopengl32", "-lglu32", "-lvorbisfile", "-lvorbis", "-logg", "-lflac"
+			],
       "group": "build",
-      "presentation": {
-        "reveal": "silent"
-      }
-    },
-    {
-      "label": "Build & Copy (Default)",
-      "dependsOrder": "sequence",
-      "dependsOn": [
-        "Build C++ file with SFML",
-        "Copy SFML DLLs"
-      ],
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
-      "problemMatcher": []
-    }
+			"problemMatcher": [
+				"$gcc"
+			],
+			"detail": "Compiles Sokuban.cpp with SFML libraries using C++17 (RELEASE BUILD)."
+		},
   ]
 }
