@@ -43,7 +43,7 @@ public:
         if (!menuBgTex.loadFromFile("Assets/backround.jpg")) {
             std::cerr << "Warning: Failed to load Assets/backround.jpg\n";
         }
-        if (!font.loadFromFile("Assets/ARLRDBD.ttf")) {
+        if (!font.openFromFile("Assets/ARLRDBD.ttf")) {
             std::cerr << "Warning: Failed to load Assets/ARLRDBD.ttf\n";
         }
         return ok;
