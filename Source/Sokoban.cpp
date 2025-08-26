@@ -158,8 +158,8 @@ int main() {
     // --- Floor helper ---
     // Requirement: makeFloorAt creates Floor class explicitly
     auto makeFloorAt = [&](int x, int y) -> Floor* {
-        Floor* g = new Floor(&floorTexture, TILE - 2.f);
-        g->setSize(sf::Vector2f(TILE - 1.f, TILE - 1.f));
+        Floor* g = new Floor(&floorTexture, TILE);
+        g->setSize(sf::Vector2f(TILE, TILE));
         g->setPosition(sf::Vector2f(x * TILE, y * TILE));
         return g;
     };
@@ -213,7 +213,8 @@ int main() {
     };
     for (auto [px,py] : portalSpots) {
         delete tiles[py][px];
-        tiles[py][px] = new Portal(portalTex.getSize().x > 0 ? &portalTex : nullptr, TILE - 1.f);
+        tiles[py][px] = new Portal(portalTex.getSize().x > 0 ? &portalTex : nullptr, TILE);
+        tiles[py][px]->setSize(sf::Vector2f(TILE, TILE));
         tiles[py][px]->setPosition(sf::Vector2f(px * TILE, py * TILE));
     }
     
