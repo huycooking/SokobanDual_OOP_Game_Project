@@ -11,6 +11,119 @@
 
 ##### FORMAT FOR AI_LOG.md #####
 
+# AI interaction 21: fix the gap between each tile
+💻 Prompt
+Now how can i make these gaps in grass tiles gone or at least the borderline is not too thick
+
+💻 GPT-5
+I see the issue 👍 — the **black border lines** on your grass tiles are not part of the grass texture itself, but come from how you draw your `Floor` tiles:
+
+```cpp
+Floor* g = new Floor(&floorTexture, TILE - 2.f);
+g->setSize(sf::Vector2f(TILE - 1.f, TILE - 1.f));
+```
+
+That `-2.f` and `-1.f` makes each square slightly smaller than the grid spacing (`TILE`), so when you place them at `(x * TILE, y * TILE)`, a thin gap shows between tiles. Since SFML clears the background with `window.clear(sf::Color::Black);`, those gaps appear as black borders.
+
+---
+
+### ✅ Ways to fix:
+
+#### **Option 1 – Make tiles fill completely**
+
+Change to exactly match `TILE`:
+
+```cpp
+auto makeFloorAt = [&](int x, int y) -> Floor* {
+    Floor* g = new Floor(&floorTexture, TILE);
+    g->setSize(sf::Vector2f(TILE, TILE));
+    g->setPosition(sf::Vector2f(x * TILE, y * TILE));
+    return g;
+};
+```
+
+This way, tiles cover the whole grid, no gaps.
+
+---
+
+#### **Option 2 – Use smaller gaps but fill background**
+
+If you still want spacing between tiles but don’t want black lines, instead of:
+
+```cpp
+window.clear(sf::Color::Black);
+```
+
+use:
+
+```cpp
+window.clear(sf::Color(34, 139, 34)); // or some green close to grass
+```
+
+That way, the gap color matches the grass background.
+
+---
+
+#### **Option 3 – Scale textures slightly bigger**
+
+If your floor texture is not seamless, you can scale each tile a bit bigger than `TILE` so that they overlap slightly:
+
+```cpp
+g->setSize(sf::Vector2f(TILE + 1.f, TILE + 1.f));
+```
+
+This hides seams at the cost of a tiny overlap.
+
+---
+
+👉 Best approach is **Option 1 (full TILE size)** if you don’t want borders at all.
+
+Do you want me to modify your `Sokoban.cpp` and show you exactly what lines to replace so the borders disappear completely?
+
+💻 Prompt
+Ok now fix the same with the portal ones
+
+💻 GPT-5
+Got it 👍 — your **portals** are drawn slightly smaller than the tile, which is why you see the thin black (grid) lines around them.
+
+Right now you create them like this:
+
+```cpp
+tiles[py][px] = new Portal(portalTex.getSize().x > 0 ? &portalTex : nullptr, TILE - 1.f);
+tiles[py][px]->setPosition(sf::Vector2f(px * TILE, py * TILE));
+```
+
+That `TILE - 1.f` is shrinking them just like your grass tiles before.
+
+---
+
+### ✅ Fix (make portals exactly tile-sized)
+
+Change it to:
+
+```cpp
+tiles[py][px] = new Portal(portalTex.getSize().x > 0 ? &portalTex : nullptr, TILE);
+tiles[py][px]->setSize(sf::Vector2f(TILE, TILE));
+tiles[py][px]->setPosition(sf::Vector2f(px * TILE, py * TILE));
+```
+
+This way:
+
+* The portal covers the full grid cell.
+* No black border will appear around it.
+
+---
+
+### 🔍 Extra Tip
+
+Do the same for **pushable boxes** and **special boxes** if you want them perfectly aligned (currently you’re also using `TILE - 2.f` or `TILE - 4.f` in those constructors, which leaves seams).
+
+Would you like me to go through your whole `Sokoban.cpp` and give you a **full list of all places** where you should replace `TILE - x.f` with `TILE` so everything fits flush with no borders?
+
+
+💻 Analysis / Note 
+Choose option 1 and fill the gap between each tile
+
 # AI interaction 20: Add Game, Map, Menu and Texture class
 💻 Prompt
 Now, i need to divide this code into 2 classes:

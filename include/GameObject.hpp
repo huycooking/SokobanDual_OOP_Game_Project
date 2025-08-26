@@ -21,6 +21,9 @@ public:
     virtual bool isPushable() const = 0;
     virtual bool isPortal() const = 0;
 
+    // drawing handled by derived classes through sf::Drawable
+    virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const override;
+
 protected:
     // derived classes set this flag in their constructors
     bool blocksFlag = false;
@@ -28,8 +31,7 @@ protected:
     sf::RectangleShape shape;
     std::optional<sf::Sprite> sprite; // optional sprite when a texture is provided
 
-    // drawing handled by derived classes through sf::Drawable
-    virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const override;
+    
 };
 
 #endif // GAMEOBJECT_HPP
