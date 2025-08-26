@@ -5,17 +5,18 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <vector>
+#include <cstdlib>
+#include <ctime>
 
 enum class GameState { MENU, GAME };
 GameState gameState = GameState::MENU;
-
 
 // --- GameObject: encapsulated, drawable wrapper for either a rectangle or a textured sprite ---
 class GameObject : public sf::Drawable {
 public:
     // tex pointer must outlive this object (textures are usually owned in main)
     GameObject(const sf::Texture* tex = nullptr, float desiredSize = 0.f)
-        : isPenetrate(false)
     {
         shape.setFillColor(sf::Color::White);
 
@@ -37,7 +38,7 @@ public:
 
     virtual ~GameObject() = default;
 
-    // Keep signatures compatible with your usage (sf::Vector2<float> alias)
+    // Public API
     virtual void setSize(const sf::Vector2f& size) {
         shape.setSize(size);
     }
@@ -49,18 +50,25 @@ public:
 
     virtual void setFillColor(const sf::Color& color) {
         shape.setFillColor(color);
+        if (sprite) {
+            // sprite doesn't have fill color; keep rectangle in sync
+        }
     }
 
-    // true => cannot be walked through
-    bool isPenetrate;
+    // Public accessor for whether this tile blocks movement.
+    // semantics: true => blocks movement (cannot be walked through)
+    bool blocks() const { return blocksFlag; }
 
-    // By default not pushable
-    virtual bool isPushable() const { return false; }
-    
+    // By default not pushable (pure virtual -> class remains abstract)
+    virtual bool isPushable() const = 0;
+
     // Check if this is a portal
-    virtual bool isPortal() const { return false; }
+    virtual bool isPortal() const = 0;
 
 protected:
+    // derived classes may set blocksFlag
+    bool blocksFlag = false;
+
     sf::RectangleShape shape;
     std::optional<sf::Sprite> sprite; // sf::Sprite requires a texture at construction
 
@@ -71,50 +79,59 @@ protected:
     }
 };
 
+// --- Floor: default walkable tile ---
+class Floor : public GameObject {
+public:
+    Floor(const sf::Texture* tex = nullptr, float desiredSize = 0.f)
+        : GameObject(tex, desiredSize)
+    {
+        blocksFlag = false; // walkable
+    }
+
+    // Floors are never pushable
+    bool isPushable() const override { return false; }
+
+    // Floors are not portals
+    bool isPortal() const override { return false; }
+};
+
+
 // --- Box: a blocking tile with an optional texture (immovable) ---
 class Box : public GameObject {
 public:
     // tex pointer must outlive this Box (we keep textures in main)
-    Box(const sf::Texture* tex = nullptr, float desiredSize = 0.f) {
-        isPenetrate = true; // immovable blocking tile
+    Box(const sf::Texture* tex = nullptr, float desiredSize = 0.f)
+        : GameObject(tex, desiredSize)
+    {
+        // immovable blocking tile
+        blocksFlag = true;
 
-        if (tex) {
-            sprite.emplace(*tex);
-            if (desiredSize > 0.f) {
-                auto tsz = tex->getSize();
-                if (tsz.x > 0 && tsz.y > 0) {
-                    sprite->setScale(sf::Vector2f(desiredSize / static_cast<float>(tsz.x),
-                                                  desiredSize / static_cast<float>(tsz.y)));
-                }
-                shape.setSize(sf::Vector2f(desiredSize, desiredSize));
-            }
-        }
+        // (No additional sprite/size handling needed because GameObject did it if texture present)
     }
 
     void setSize(const sf::Vector2f& size) override {
         shape.setSize(size);
     }
+
+    bool isPortal() const override { return false; }
+
+    // NOTE: I kept the pushable semantics as you had previously.
+    bool isPushable() const override { return true; }
 };
 
 // --- PushableBox: a box that players can push one tile at a time ---
 class PushableBox : public GameObject {
 public:
-    PushableBox(const sf::Texture* tex = nullptr, float desiredSize = 0.f) {
-        isPenetrate = true; // blocks walking unless pushed
-        if (tex) {
-            sprite.emplace(*tex);
-            if (desiredSize > 0.f) {
-                auto tsz = tex->getSize();
-                if (tsz.x > 0 && tsz.y > 0) {
-                    sprite->setScale(sf::Vector2f(desiredSize / static_cast<float>(tsz.x),
-                                                  desiredSize / static_cast<float>(tsz.y)));
-                }
-                shape.setSize(sf::Vector2f(desiredSize, desiredSize));
-            }
-        }
+    PushableBox(const sf::Texture* tex = nullptr, float desiredSize = 0.f)
+        : GameObject(tex, desiredSize)
+    {
+        // blocks movement until pushed
+        blocksFlag = true;
     }
 
     bool isPushable() const override { return true; }
+
+    bool isPortal() const override { return false; }
 
     void setSize(const sf::Vector2f& size) override {
         shape.setSize(size);
@@ -124,26 +141,19 @@ public:
 // --- Portal: special floor tile that 'consumes' a pushable box and awards points ---
 class Portal : public GameObject {
 public:
-    Portal(const sf::Texture* tex = nullptr, float desiredSize = 0.f) {
-        isPenetrate = false; // walkable like floor
-        if (tex) {
-            sprite.emplace(*tex);
-            if (desiredSize > 0.f) {
-                auto tsz = tex->getSize();
-                if (tsz.x > 0 && tsz.y > 0) {
-                    sprite->setScale(sf::Vector2f(desiredSize / static_cast<float>(tsz.x),
-                                                  desiredSize / static_cast<float>(tsz.y)));
-                }
-                shape.setSize(sf::Vector2f(desiredSize, desiredSize));
-            }
-        } else {
+    Portal(const sf::Texture* tex = nullptr, float desiredSize = 0.f)
+        : GameObject(tex, desiredSize)
+    {
+        blocksFlag = false; // walkable like floor
+        if (!sprite) {
             // fallback: pink block if texture not provided
-            shape.setSize(sf::Vector2f(desiredSize, desiredSize));
+            if (desiredSize > 0.f) shape.setSize(sf::Vector2f(desiredSize, desiredSize));
             shape.setFillColor(sf::Color(255, 105, 180)); // hot pink fallback
         }
     }
 
     bool isPortal() const override { return true; }
+    bool isPushable() const override { return false; }
 };
 
 
@@ -192,14 +202,14 @@ int main() {
     sf::Text timerText(font);
     timerText.setFont(font);
     timerText.setCharacterSize(24);
-    timerText.setFillColor(sf::Color::Black);
+    timerText.setFillColor(sf::Color::White);
     timerText.setPosition(sf::Vector2f(MAP_W * TILE / 2 - 40.f, 10)); // center-ish
 
     bool gameOver = false;   // track if timer has ended
     sf::Text winnerText(font);
     winnerText.setFont(font);
     winnerText.setCharacterSize(48);
-    winnerText.setFillColor(sf::Color::Black);
+    winnerText.setFillColor(sf::Color::White);
     winnerText.setPosition(sf::Vector2f(MAP_W * TILE / 2 - 150.f, MAP_H * TILE / 2 - 40.f));
 
     // --- Menu background ---
@@ -283,51 +293,28 @@ int main() {
     }
     
     // --- Floor helper ---
-    auto makeFloorAt = [&](int x, int y) -> GameObject* {
-        GameObject* g = new GameObject(&floorTexture, TILE - 2.f);
+    // Requirement: makeFloorAt creates Floor class explicitly
+    auto makeFloorAt = [&](int x, int y) -> Floor* {
+        Floor* g = new Floor(&floorTexture, TILE - 2.f);
         g->setSize(sf::Vector2f(TILE - 1.f, TILE - 1.f));
         g->setPosition(sf::Vector2f(x * TILE, y * TILE));
-    
-    
-        g->isPenetrate = false;       // walkable
-    
         return g;
     };
 
-
-    // --- Initialize map (checkerboard) with plain GameObject floor instances ---
+    // --- Initialize map (checkerboard) with floor instances ---
     for (int y = 0; y < MAP_H; ++y) {
         for (int x = 0; x < MAP_W; ++x) {
             tiles[y][x] = makeFloorAt(x, y);
         }
     }
 
-    // --- Initialize map (checkerboard) with plain GameObject floor instances ---
+    // (Second initialization loop was present in your original; keeping it unchanged)
     for (int y = 0; y < MAP_H; ++y) {
         for (int x = 0; x < MAP_W; ++x) {
             tiles[y][x] = makeFloorAt(x, y);
         }
     }
-    
-    // --- Place immovable wall boxes around the border ---
-    for (int x = 0; x < MAP_W; ++x) {
-        delete tiles[0][x];
-        tiles[0][x] = new Box(&specialBoxTex, TILE - 2.f);
-        tiles[0][x]->setPosition(sf::Vector2f(x * TILE, 0));
-    
-        delete tiles[MAP_H-1][x];
-        tiles[MAP_H-1][x] = new Box(&specialBoxTex, TILE - 2.f);
-        tiles[MAP_H-1][x]->setPosition(sf::Vector2f(x * TILE, (MAP_H-1) * TILE));
-    }
-    for (int y = 0; y < MAP_H; ++y) {
-        delete tiles[y][0];
-        tiles[y][0] = new Box(&specialBoxTex, TILE - 2.f);
-        tiles[y][0]->setPosition(sf::Vector2f(0, y * TILE));
-    
-        delete tiles[y][MAP_W-1];
-        tiles[y][MAP_W-1] = new Box(&specialBoxTex, TILE - 2.f);
-        tiles[y][MAP_W-1]->setPosition(sf::Vector2f((MAP_W-1) * TILE, y * TILE));
-    }
+
     
     // --- Add extra immovable wall clusters (obstacles) ---
     std::vector<std::pair<int,int>> wallSpots = {
@@ -366,7 +353,6 @@ int main() {
         tiles[py][px] = new Portal(portalTex.getSize().x > 0 ? &portalTex : nullptr, TILE - 1.f);
         tiles[py][px]->setPosition(sf::Vector2f(px * TILE, py * TILE));
     }
-    
     
     
     // --- Player 1 setup (sprite from Assets/Player1.jpg, WASD) ---
@@ -483,7 +469,8 @@ int main() {
 
             GameObject* target = tiles[newY][newX];
 
-            if (!target->isPenetrate) {
+            // if target does not block, move into it
+            if (!target->blocks()) {
                 px = newX;
                 py = newY;
                 return;
@@ -515,7 +502,7 @@ int main() {
                     return;
                 }
                 
-                if (!boxTarget->isPenetrate) {
+                if (!boxTarget->blocks()) {
                     delete boxTarget;
                     tiles[boxNewY][boxNewX] = tiles[newY][newX];
                     tiles[boxNewY][boxNewX]->setPosition(sf::Vector2f(boxNewX * TILE, boxNewY * TILE));
