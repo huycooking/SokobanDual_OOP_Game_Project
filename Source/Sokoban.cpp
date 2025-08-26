@@ -57,7 +57,7 @@ int main() {
     player2ScoreText.setFont(font);
     player2ScoreText.setCharacterSize(24);
     player2ScoreText.setFillColor(sf::Color::Blue);
-    player2ScoreText.setPosition(sf::Vector2f(MAP_W * TILE - TILE * 4,10));
+    player2ScoreText.setPosition(sf::Vector2f(MAP_W * TILE - TILE * 3,10));
 
     // --- Timer setup ---
     sf::Clock gameClock;                   // to measure elapsed time
@@ -74,35 +74,6 @@ int main() {
     winnerText.setCharacterSize(48);
     winnerText.setFillColor(sf::Color::White);
     winnerText.setPosition(sf::Vector2f(MAP_W * TILE / 2 - 150.f, MAP_H * TILE / 2 - 40.f));
-
-    // --- Menu background ---
-    sf::Texture menuBgTex;
-    if (!menuBgTex.loadFromFile("Assets/backround.jpg")) {
-        std::cerr << "Failed to load Assets/backround.jpg\n";
-    }
-    sf::Sprite menuBg(menuBgTex);
-    {
-        auto bgSize = menuBgTex.getSize();
-        if (bgSize.x > 0 && bgSize.y > 0) {
-            menuBg.setScale(sf::Vector2f(
-                static_cast<float>(winW) / static_cast<float>(bgSize.x),
-                static_cast<float>(winH) / static_cast<float>(bgSize.y)
-            ));
-        }
-    }
-
-    // --- Menu buttons (SFML 3 constructors) ---
-    sf::Text startButton(font);
-    startButton.setString("Start");
-    startButton.setCharacterSize(48);
-    startButton.setFillColor(sf::Color::Black);
-    startButton.setPosition(sf::Vector2f(winW * 0.45f, winH * 0.45f));
-
-    sf::Text exitButton(font);
-    exitButton.setString("Exit");
-    exitButton.setCharacterSize(48);
-    exitButton.setFillColor(sf::Color::Black);
-    exitButton.setPosition(sf::Vector2f(winW * 0.45f, winH * 0.60f));
 
     // --- Box spawner setup ---
     sf::Clock boxSpawnClock;
