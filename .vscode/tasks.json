@@ -4,16 +4,17 @@
     {
 			"label": "Build C++ file with SFML",
 			"type": "cppbuild",
-			"command": "g++.exe",
+			"command": "C:/winlibs/mingw64/bin/g++.exe",
 			"args": [
         "-std=c++17",
 				"-g",
         "-static", "-static-libstdc++", "-static-libgcc",
         "-DSFML_STATIC",
-        "${workspaceFolder}/Source/Sokoban.cpp",
+        "${workspaceFolder}/Source/*.cpp",
         "-o",
         "${workspaceFolder}/Sokoban.exe",
         "-I${workspaceFolder}/sfml/include",
+        "-I${workspaceFolder}/include",
         "-L${workspaceFolder}/sfml/lib",
         "-lsfml-graphics-s", "-lsfml-window-s", "-lsfml-system-s", "-lsfml-audio-s", "-lfreetype", "-lwinmm", "-lws2_32", "-luser32", "-lgdi32", "-lopengl32", "-lglu32", "-lvorbisfile", "-lvorbis", "-logg", "-lflac"
 			],

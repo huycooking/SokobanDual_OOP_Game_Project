@@ -51,7 +51,7 @@ int main() {
     
     player1ScoreText.setFont(font);
     player1ScoreText.setCharacterSize(24);
-    player1ScoreText.setFillColor(sf::Color::Red);
+    player1ScoreText.setFillColor(sf::Color::Blue);
     player1ScoreText.setPosition(sf::Vector2f(10,10));
     
     player2ScoreText.setFont(font);

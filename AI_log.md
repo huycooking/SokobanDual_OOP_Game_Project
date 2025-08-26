@@ -11,7 +11,8 @@
 
 ##### FORMAT FOR AI_LOG.md #####
 
-# AI interaction 18: Add a Bomb class inherited from GameObject class
+# AI interaction 18: Divide classes into files
+💻 Prompt
 
 # AI interaction 17: Add an auto spamming boxes system
 💻 Prompt
