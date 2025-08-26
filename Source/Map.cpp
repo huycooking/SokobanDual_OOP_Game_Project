@@ -51,8 +51,14 @@ void Map::populateInitialState() {
         {MAP_W / 2 - 2, MAP_H / 2}, {MAP_W / 2 + 2, MAP_H / 2},
         {MAP_W / 2, MAP_H / 2 - 2}, {MAP_W / 2, MAP_H / 2 + 2},
         {5, 5}, {5, 6}, {6, 5},
-        {MAP_W - 6, MAP_H - 6}, {MAP_W - 5, MAP_H - 6}, {MAP_W - 6, MAP_H - 5}
+        {MAP_W - 6, MAP_H - 6}, {MAP_W - 5, MAP_H - 6}, {MAP_W - 6, MAP_H - 5},
+        {3, 8}, {8, 3}, {12, 12},
+        {MAP_W - 8, 8}, {8, MAP_H - 8},
+        {15, 5}, {5, 15}, {MAP_W - 15, MAP_H - 15},
+        {10, 10}, {MAP_W - 10, 10}, {10, MAP_H - 10},
+        {2, MAP_H - 2}, {MAP_W - 2, 2}
     };
+
     for (auto [wx, wy] : wallSpots) {
         GameObject* wall = new Box(&specialBoxTex, TILE - 2.f);
         wall->setPosition(sf::Vector2f(wx * TILE, wy * TILE));
