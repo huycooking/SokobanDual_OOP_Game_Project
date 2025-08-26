@@ -11,11 +11,185 @@
 
 ##### FORMAT FOR AI_LOG.md #####
 
+# AI interaction 25: fix audio error
+💻 Prompt
+I have task.json here, tell me where i can find the missing file
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+			"label": "Build C++ file with SFML",
+			"type": "cppbuild",
+			"command": "C:/winlibs/mingw64/bin/g++.exe",
+			"args": [
+        "-std=c++17",
+				"-g",
+        "-static", "-static-libstdc++", "-static-libgcc",
+        "-DSFML_STATIC",
+        "${workspaceFolder}/Source/*.cpp",
+        "-o",
+        "${workspaceFolder}/Sokoban.exe",
+        "-I${workspaceFolder}/sfml/include",
+        "-I${workspaceFolder}/include",
+        "-L${workspaceFolder}/sfml/lib",
+        "-lsfml-graphics-s", "-lsfml-window-s", "-lsfml-system-s",
+        "-lsfml-audio-s", "-lfreetype", "-lwinmm", "-lws2_32", "-luser32",
+        "-lgdi32", "-lopengl32", "-lglu32", "-lvorbisfile", "-lvorbis", "-logg", "-lflac",
+			],
+      "group": "build",
+			"problemMatcher": [
+				"$gcc"
+			],
+			"detail": "Compiles Sokuban.cpp with SFML libraries using C++17."
+		},
+    {
+			"label": "Build C++ file with SFML (RELEASE BUILD)",
+			"type": "cppbuild",
+			"command": "g++.exe",
+			"args": [
+        "-std=c++17",
+				"-Os", "-s",
+        "-static", "-static-libstdc++", "-static-libgcc",
+        "-DSFML_STATIC",
+        "${workspaceFolder}/Source/Sokoban.cpp",
+        "-o",
+        "${workspaceFolder}/Sokoban.exe",
+        "-I${workspaceFolder}/sfml/include",
+        "-L${workspaceFolder}/sfml/lib",
+        "-lsfml-graphics-s", "-lsfml-window-s", "-lsfml-system-s", "-lsfml-audio-s", "-lfreetype", "-lwinmm", "-lws2_32", "-luser32", "-lgdi32", "-lopengl32", "-lglu32", "-lvorbisfile", "-lvorbis", "-logg", "-lflac"
+			],
+      "group": "build",
+			"problemMatcher": [
+				"$gcc"
+			],
+			"detail": "Compiles Sokuban.cpp with SFML libraries using C++17 (RELEASE BUILD)."
+		},
+  ]
+}
+
+💻 DeepSeek-V3
+The error you're encountering is related to missing linker dependencies for SFML's static libraries. The issue is that your current task.json is missing the `-lopenal32` library, which is required for SFML Audio functionality.
+
+Here's your corrected task.json:
+
+```json
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build C++ file with SFML",
+      "type": "cppbuild",
+      "command": "C:/winlibs/mingw64/bin/g++.exe",
+      "args": [
+        "-std=c++17",
+        "-g",
+        "-static", "-static-libstdc++", "-static-libgcc",
+        "-DSFML_STATIC",
+        "${workspaceFolder}/Source/*.cpp",
+        "-o",
+        "${workspaceFolder}/Sokoban.exe",
+        "-I${workspaceFolder}/sfml/include",
+        "-I${workspaceFolder}/include",
+        "-L${workspaceFolder}/sfml/lib",
+        "-lsfml-audio-s", 
+        "-lsfml-graphics-s", 
+        "-lsfml-window-s", 
+        "-lsfml-system-s",
+        "-lopenal32", // ADD THIS LINE - Required for audio
+        "-lfreetype", 
+        "-lwinmm", 
+        "-lws2_32", 
+        "-luser32",
+        "-lgdi32", 
+        "-lopengl32", 
+        "-lglu32", 
+        "-lvorbisfile", 
+        "-lvorbis", 
+        "-logg", 
+        "-lflac"
+      ],
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "detail": "Compiles Sokuban.cpp with SFML libraries using C++17."
+    },
+    {
+      "label": "Build C++ file with SFML (RELEASE BUILD)",
+      "type": "cppbuild",
+      "command": "g++.exe",
+      "args": [
+        "-std=c++17",
+        "-Os", "-s",
+        "-static", "-static-libstdc++", "-static-libgcc",
+        "-DSFML_STATIC",
+        "${workspaceFolder}/Source/Sokoban.cpp",
+        "-o",
+        "${workspaceFolder}/Sokoban.exe",
+        "-I${workspaceFolder}/sfml/include",
+        "-L${workspaceFolder}/sfml/lib",
+        "-lsfml-audio-s", // Moved audio to front
+        "-lsfml-graphics-s", 
+        "-lsfml-window-s", 
+        "-lsfml-system-s", 
+        "-lopenal32", // ADD THIS LINE - Required for audio
+        "-lfreetype", 
+        "-lwinmm", 
+        "-lws2_32", 
+        "-luser32", 
+        "-lgdi32", 
+        "-lopengl32", 
+        "-lglu32", 
+        "-lvorbisfile", 
+        "-lvorbis", 
+        "-logg", 
+        "-lflac"
+      ],
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "detail": "Compiles Sokuban.cpp with SFML libraries using C++17 (RELEASE BUILD)."
+    }
+  ]
+}
+```
+
+## Where to find the missing libraries:
+
+1. **OpenAL32**: 
+   - If you don't have it, download from: https://www.openal.org/downloads/
+   - Or get it from your SFML dependencies package
+   - Place `OpenAL32.lib` in your `sfml/lib` folder
+
+2. **Other libraries**:
+   - Most should come with your SFML package
+   - If missing, download the SFML development libraries for GCC/MinGW from: https://www.sfml-dev.org/download.php
+   - Make sure to get the version that matches your compiler (32-bit vs 64-bit)
+
+## Additional troubleshooting steps:
+
+1. Verify your SFML package includes all required static libraries in the `sfml/lib` folder:
+   - libsfml-audio-s.a
+   - libsfml-graphics-s.a  
+   - libsfml-window-s.a
+   - libsfml-system-s.a
+   - And all dependency libraries
+
+2. Check that your SFML version matches your compiler version (important for static linking)
+
+3. If problems persist, try reordering the libraries (I've moved audio to the front in the corrected version)
+
+The key addition is `-lopenal32` which provides the OpenAL audio functionality that SFML's audio module depends on.
+
+💻 Analysis / Note 
+When moving the "-lsfml-audio-s" to the front, it compiles without any errors
+
 # AI interaction 24: sync the player and the map
 💻 Prompt
 The player cordinate and the actual map window draw is all messed up, please fix it
 
-💻 AI's output (name of the model)
+💻 DeepSeek-V3
 I see the issue. The problem is that the Player class is using a different coordinate system than the map. The Player class is using pixel coordinates while the map uses grid coordinates. Let me fix this:
 
 **First, let's fix the Player class:**

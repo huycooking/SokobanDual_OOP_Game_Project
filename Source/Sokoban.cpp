@@ -1,5 +1,6 @@
 // Sokoban.cpp
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp> // Add this include for audio support
 #include <array>
 #include <optional>
 #include <iostream>
@@ -34,6 +35,26 @@ int main() {
     window.setFramerateLimit(10);
     window.setKeyRepeatEnabled(false);
 
+    // --- Sound effects ---
+    sf::Music themeMusic;
+    if (!themeMusic.openFromFile("Assets/theme.mp3")) {
+        std::cerr << "Failed to load theme music: Assets/theme.mp3\n";
+    } else {
+        themeMusic.setLooping(true); // Loop the theme music
+        themeMusic.play();
+    }
+
+    sf::SoundBuffer gainPointsBuffer;
+    // Initialize sf::Sound with the buffer (even if it might not be loaded yet)
+    sf::Sound gainPointsSound(gainPointsBuffer); // SFML 3.0.0 requires constructor parameter
+
+    if (!gainPointsBuffer.loadFromFile("Assets/gainpoints.mp3")) {
+        std::cerr << "Failed to load sound effect: Assets/gainpoints.mp3\n";
+    } else {
+        // If loading succeeds, set the buffer again to ensure it's properly linked
+        gainPointsSound.setBuffer(gainPointsBuffer);
+    }
+
     // --- Font for score display ---
     sf::Font font;
     if (!font.openFromFile("Assets/ARLRDBD.ttf")) {
@@ -56,7 +77,7 @@ int main() {
 
     // --- Timer setup ---
     sf::Clock gameClock;
-    const int GAME_DURATION = 60;
+    const int GAME_DURATION = 150;
     sf::Text timerText(font);
     timerText.setFont(font);
     timerText.setCharacterSize(24);
@@ -121,6 +142,11 @@ int main() {
         
             if (remaining <= 0) {
                 gameOver = true;
+                
+                // Stop theme music when game ends
+                if (themeMusic.getStatus() == sf::Sound::Status::Playing) {
+                    themeMusic.stop();
+                }
             
                 // Decide winner
                 if (player1.getScore() > player2.getScore()) {
@@ -202,6 +228,11 @@ int main() {
                     
                     // Award points to the player who pushed it
                     player.addScore(10);
+                    
+                    // Play the points gained sound effect
+                    if (gainPointsSound.getStatus() != sf::Sound::Status::Playing) {
+                        gainPointsSound.play();
+                    }
                     
                     player.setGridPosition(newX, newY); // Player moves to where box was
                     return;
