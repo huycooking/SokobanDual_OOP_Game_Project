@@ -45,44 +45,96 @@ Map::~Map() {
 
 // --- Fills the map with initial walls, boxes, and portals ---
 void Map::populateInitialState() {
-    // Place immovable wall clusters (obstacles)
-    std::vector<std::pair<int, int>> wallSpots = {
-        {MAP_W / 2, MAP_H / 2},
-        {MAP_W / 2 - 2, MAP_H / 2}, {MAP_W / 2 + 2, MAP_H / 2},
-        {MAP_W / 2, MAP_H / 2 - 2}, {MAP_W / 2, MAP_H / 2 + 2},
-        {5, 5}, {5, 6}, {6, 5},
-        {MAP_W - 6, MAP_H - 6}, {MAP_W - 5, MAP_H - 6}, {MAP_W - 6, MAP_H - 5},
-        {3, 8}, {8, 3}, {12, 12},
-        {MAP_W - 8, 8}, {8, MAP_H - 8},
-        {15, 5}, {5, 15}, {MAP_W - 15, MAP_H - 15},
-        {10, 10}, {MAP_W - 10, 10}, {10, MAP_H - 10},
-        {2, MAP_H - 2}, {MAP_W - 2, 2}
-    };
-
+    // Initialize random seed
+    std::srand(std::time(0));
+    
+    // Track all occupied positions
+    std::vector<std::pair<int, int>> occupiedSpots;
+    
+    // Generate random wall positions (10-15 walls)
+    std::vector<std::pair<int, int>> wallSpots;
+    int numWalls = 20 + (std::rand() % 6); // Random between 20-25 walls
+    for (int i = 0; i < numWalls; i++) {
+        int x, y;
+        bool positionFree;
+        do {
+            x = std::rand() % MAP_W;
+            y = std::rand() % MAP_H;
+            positionFree = true;
+            // Check if position is already occupied
+            for (auto [ox, oy] : occupiedSpots) {
+                if (ox == x && oy == y) {
+                    positionFree = false;
+                    break;
+                }
+            }
+        } while (!positionFree);
+        
+        wallSpots.push_back({x, y});
+        occupiedSpots.push_back({x, y});
+    }
+    
+    // Generate random pushable box positions (8-12 boxes)
+    std::vector<std::pair<int, int>> pushableSpots;
+    int numBoxes = 15 + (std::rand() % 5); // Random between 15-20 boxes
+    for (int i = 0; i < numBoxes; i++) {
+        int x, y;
+        bool positionFree;
+        do {
+            x = std::rand() % MAP_W;
+            y = std::rand() % MAP_H;
+            positionFree = true;
+            // Check if position is already occupied
+            for (auto [ox, oy] : occupiedSpots) {
+                if (ox == x && oy == y) {
+                    positionFree = false;
+                    break;
+                }
+            }
+        } while (!positionFree);
+        
+        pushableSpots.push_back({x, y});
+        occupiedSpots.push_back({x, y});
+    }
+    
+    // Generate random portal positions (3-5 portals)
+    std::vector<std::pair<int, int>> portalSpots;
+    int numPortals = 3 + (std::rand() % 3); // Random between 3-5 portals
+    for (int i = 0; i < numPortals; i++) {
+        int x, y;
+        bool positionFree;
+        do {
+            x = std::rand() % MAP_W;
+            y = std::rand() % MAP_H;
+            positionFree = true;
+            // Check if position is already occupied
+            for (auto [ox, oy] : occupiedSpots) {
+                if (ox == x && oy == y) {
+                    positionFree = false;
+                    break;
+                }
+            }
+        } while (!positionFree);
+        
+        portalSpots.push_back({x, y});
+        occupiedSpots.push_back({x, y});
+    }
+    
+    // Place walls
     for (auto [wx, wy] : wallSpots) {
         GameObject* wall = new Box(&specialBoxTex, TILE - 2.f);
         wall->setPosition(sf::Vector2f(wx * TILE, wy * TILE));
         setTile(wx, wy, wall);
     }
 
-    // Scatter initial pushable boxes
-    std::vector<std::pair<int, int>> pushableSpots = {
-        {3, 3}, {7, 4}, {10, 6}, {12, 8}, {MAP_W / 2 - 3, MAP_H / 2 - 1},
-        {MAP_W / 2 + 3, MAP_H / 2 + 1}, {8, MAP_H - 5}, {MAP_W - 8, 5}
-    };
+    // Place pushable boxes
     for (auto [bx, by] : pushableSpots) {
         GameObject* pBox = new PushableBox(&pushableBoxTex, TILE - 4.f);
         pBox->setPosition(sf::Vector2f(bx * TILE, by * TILE));
         setTile(bx, by, pBox);
     }
 
-    // Place multiple portals
-    std::vector<std::pair<int, int>> portalSpots = {
-        {MAP_W / 2 + 4, MAP_H / 2 + 3},
-        {4, MAP_H - 4},
-        {MAP_W - 5, 4},
-        {MAP_W / 2, 3}
-    };
+    // Place portals
     for (auto [px, py] : portalSpots) {
         GameObject* portal = new Portal(portalTex.getSize().x > 0 ? &portalTex : nullptr, TILE);
         portal->setPosition(sf::Vector2f(px * TILE, py * TILE));
