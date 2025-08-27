@@ -1,5 +1,0 @@
-In order to compile and build this project:
-_ WinLibs UCRT 14.2.0 is required.
-_ Rename the SFML 3.0.0 library folder into "SFML", then put it into the workspace
-
-_ Download link: https://www.sfml-dev.org/download/sfml/3.0.0/

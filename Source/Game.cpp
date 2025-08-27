@@ -40,6 +40,7 @@ Game::Game()
     if (!themeMusic.openFromFile("Assets/theme.mp3")) {
         std::cerr << "Failed to load theme music: Assets/theme.mp3\n";
     } else {
+        themeMusic.setVolume(35.0f);
         themeMusic.setLooping(true);
         themeMusic.play();
     }
