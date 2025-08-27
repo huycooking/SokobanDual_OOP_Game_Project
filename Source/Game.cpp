@@ -74,8 +74,35 @@ Game::Game()
     
     // Setup game state
     gameMap.populateInitialState();
-    player1.setGridPosition(MAP_W / 4, MAP_H / 2);
-    player2.setGridPosition((MAP_W * 3) / 4, MAP_H / 2);
+    // For player 1
+    int p1_x, p1_y;
+    bool p1_occupied = true;
+    while (p1_occupied) {
+        p1_x = std::rand() % MAP_W;
+        p1_y = std::rand() % MAP_H;
+        GameObject* tile = gameMap.getTile(p1_x, p1_y);
+        if (dynamic_cast<Floor*>(tile)) {
+            p1_occupied = false;
+        }
+    }
+    player1.setGridPosition(p1_x, p1_y);
+    
+    // For player 2 (with additional check to ensure they're not too close)
+    int p2_x, p2_y;
+    bool p2_occupied = true;
+    while (p2_occupied) {
+        p2_x = std::rand() % MAP_W;
+        p2_y = std::rand() % MAP_H;
+        GameObject* tile = gameMap.getTile(p2_x, p2_y);
+        
+        // Ensure it's a floor and not too close to player 1
+        if (dynamic_cast<Floor*>(tile) && 
+            std::abs(p2_x - p1_x) > 5 && 
+            std::abs(p2_y - p1_y) > 5) {
+            p2_occupied = false;
+        }
+    }
+    player2.setGridPosition(p2_x, p2_y);
 }
 
 void Game::run() {
