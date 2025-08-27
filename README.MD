@@ -9,6 +9,10 @@
 ## Game description
 Simple 2-player [Sokoban](https://en.wikipedia.org/wiki/Sokoban) clone as an Object-Oriented Programming course project with AI-assisted coding
 
+One player controls with WASD, another player controls arrow keys. Goal: move the most boxes to the "blackhole" within 2.5 minutes. 
+
+![](screenshot.png)
+
 ## Source tree
 ```
 <base-directory>/
